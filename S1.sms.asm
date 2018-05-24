@@ -4,8 +4,11 @@
 .DEF tileram_adr $e408
 .DEF tilemap_adr $e40a	;tilemap ram adress
 .DEF Tile_page $3f
-.DEF set_tile $e40c	; set_tile_proc
-.DEF set_simple_tile $e416
+;.DEF set_tile $e40c	; set_tile_proc
+.DEF update_tilemem $e416
+.DEF update_2byte_tilemem $e41f
+.DEF view_tilemem $e41c
+
 .DEF cls_tileset $e419
 .DEF send_palette $e40e	
 .DEF key_scan $e410
@@ -186,9 +189,9 @@
 
 ;location of the screen name table (layout of the tiles on screen) in VRAM
 .IFDEF S1_CONFIG_BIGGERSCREEN
-.DEF SMS_VDP_SCREENNAMETABLE	$3700
+.DEF SMS_VDP_SCREENNAMETABLE	0 ;$3700
 .ELSE
-.DEF SMS_VDP_SCREENNAMETABLE	$3800
+.DEF SMS_VDP_SCREENNAMETABLE	0; $3800
 .ENDIF
 
 ;--------------------------------------------------------------------------------------
@@ -588,6 +591,17 @@ interruptHandler:
 	
 +	push	ix
 	push	iy
+
+	ld a, (RAM_VDPSCROLL_HORIZONTAL)
+;	neg				;I don't understand the reason for this
+	ld c,a
+	;vertical scroll
+	ld a, (RAM_VDPSCROLL_VERTICAL)
+	ld b,a
+	call view_tilemem
+
+;	ld	b, (iy+vars.spriteUpdateCount)
+	call send_sprites
 	
 	;remember the current page 1 & 2 banks
 	ld	hl, (RAM_PAGE_1)
@@ -632,8 +646,7 @@ button: 0 for pressed, 1 for released
 	call set_page12_hl
 	ld	(RAM_PAGE_1), hl
 	
-;	ld	b, (iy+vars.spriteUpdateCount)
-	call send_sprites
+
 	;pull everything off the stack so that the code that was running
 	 ;before the interrupt doesn't explode
 	pop	iy
@@ -668,7 +681,9 @@ _LABEL_F7_25:
 	
 	;horizontal scroll
 	ld	a, (RAM_VDPSCROLL_HORIZONTAL)
+	and 7
 ;	neg				;I don't understand the reason for this
+
 	ld bc,T0XOFFSL
 	out (c),a
 	ld bc,T1XOFFSL
@@ -680,6 +695,8 @@ _LABEL_F7_25:
 	
 	;vertical scroll
 	ld	a, (RAM_VDPSCROLL_VERTICAL)
+	and 7
+	add a,$d0
 	ld bc,T0YOFFSL
 	out (c),a
 	ld bc,T1YOFFSL
@@ -1605,9 +1622,9 @@ Data Unused   Priority Palette Vertical  Horizontal Tile number
 	
 	;configure the VDP based on the DE parameter
 ;	ld	a, e
-	ld a,d
-	sub $38
-	ld d,a
+;	ld a,d
+;	sub $38
+;	ld d,a
 	ld (tilemap_adr),de
 ;	out	(SMS_VDP_CONTROL), a
 ;	ld	a, d
@@ -1637,11 +1654,12 @@ Data Unused   Priority Palette Vertical  Horizontal Tile number
 	
 	;--- uncompressed byte --------------------------------------------------------
 	ld	e, a			;update the "current byte" being compared
-	call set_tile
+	call update_tilemem
+;	call set_tile
 ;	out	(SMS_VDP_DATA), a	;send the tile to the VDP
 
-;	ld	a, (RAM_TEMP1)		;get the upper byte to use for the tiles
-					 ;(foreground / background / flip)
+	ld	a, (RAM_TEMP1)		;get the upper byte to use for the tiles
+	call update_tilemem		;(foreground / background / flip)
 ;	out	(SMS_VDP_DATA), a
 	
 	inc	hl			;move to the next byte
@@ -1667,12 +1685,14 @@ Data Unused   Priority Palette Vertical  Horizontal Tile number
 	
 	;repeat the byte
 -	
-	call set_tile
+;	call set_tile
+	call update_tilemem
 ; 	out	(SMS_VDP_DATA), a
-;	push	af
-;	ld	a, (RAM_TEMP1)
+	push	af
+	ld	a, (RAM_TEMP1)
+	call update_tilemem
 ;	out	(SMS_VDP_DATA), a
-;	pop	af
+	pop	af
 	dec	e
 	jp	nz, -
 	
@@ -1693,13 +1713,13 @@ _decompressScreen_skip:
 	ld	e, a
 ;	in	a, (SMS_VDP_DATA)
 	xor a
-	call set_tile
+	call update_2byte_tilemem
+;	call set_tile
 ;	call add2tile
 
 	inc	hl
 	dec	bc
 ;	in	a, (SMS_VDP_DATA)
-	
 	ld	a, b
 	or	c
 	jp	nz, --
@@ -1727,7 +1747,8 @@ _decompressScreen_multiSkip:
 ;	in	a, (SMS_VDP_DATA)
 ;	call add2tile
 	xor a
-	call set_tile
+	call update_2byte_tilemem
+;	call set_tile
 
 	dec	e
 	jp	nz, _decompressScreen_multiSkip
@@ -1848,7 +1869,7 @@ print:
 	 ;to get the right offset into the screen layout data
 	ld	a, (hl)			;read the row number
 	inc	hl
-/*	
+
 	;we multiply by 64 by first multiplying by 256 -- very simple, we just make
 	 ;the value the hi-byte in a 16-bit word, e.g. "$0C00" -- and then divide
 	 ;by 4 by rotating the bits to the right
@@ -1866,15 +1887,15 @@ print:
 	ex	de, hl
 	sla	c			;multiply column number by 2 (16-bit values)
 	add	hl, bc
-	ld	bc, SMS_VDP_SCREENNAMETABLE
-	add	hl, bc
-*/	
+;	ld	bc, SMS_VDP_SCREENNAMETABLE
+;	add	hl, bc
+	
 	;set the VDP to point to the screen address calculated
-	ld b,SMS_VDP_SCREENNAMETABLE/256
-	ex de,hl
-	ld h,a
-	sla c
-	ld l,c
+;	ld b,$38	;SMS_VDP_SCREENNAMETABLE/256
+;	ex de,hl
+;	ld h,a
+;	sla c
+;	ld l,c
 	ld (tilemap_adr),hl
 /*
 	ld	a, l
@@ -1889,7 +1910,9 @@ print:
 	cp	$FF
 	ret	z
 ;	di
-	call set_tile
+	call update_tilemem
+	ld	a, (RAM_TEMP1)
+	call update_tilemem
 ;	ei
 /*	
 	out	(SMS_VDP_DATA), a
@@ -2356,13 +2379,7 @@ fillScrollTiles:		; #065e
 	
 	;multiply the vertical scroll offset by 8. since the scroll offset is already
 	 ;a multiple of 8, this will give you 64 bytes per screen row (32 16-bit tiles)
-;	ld	bc, 0
-;	add a,b
-;	srl a
-;	srl a
-;	srl a
-;	ld b,a		; vertical tile offset
-/*
+	ld	b, $00
 	add	a, a			;x2
 	rl	b
 	add	a, a			;x4
@@ -2370,13 +2387,13 @@ fillScrollTiles:		; #065e
 	add	a, a			;x8
 	rl	b
 	ld	c, a
-*/	
+	
 	;------------------------------------------------------------------------------
 	;calculate the number of bytes to get from the beginning of a row to the 
 	 ;horizontal scroll position
 	
 	ld	a, (RAM_VDPSCROLL_HORIZONTAL)
-/*	
+	
 	bit	6, (iy+vars.flags0)	;camera moved left?
 	jr	z, +
 	add	a, 8			;add 8 pixels (left screen border?)
@@ -2386,23 +2403,14 @@ fillScrollTiles:		; #065e
 	srl	a			;divide by 4
 	add	a, c
 	ld	c, a
-*/
-	srl	a
-	srl	a
-;	srl	a
-	and $fe
-	ld c,a
-	ld b,0
-	ld hl,64+SMS_VDP_SCREENNAMETABLE
-	add hl,bc
-;		ld bc,64	; !!!!!!!!!!!!!!!!!!!!!
-
+	ld l,c
+	ld h,b
 ;	ld	hl, SMS_VDP_SCREENNAMETABLE
 ;	add	hl, bc			;offset to the top of the column needed
-	set	6, h			;add bit 6 to label as a VDP VRAM address
+;	set	6, h			;add bit 6 to label as a VDP VRAM address
 	
-	ld	bc, $100;64			;there are 32 tiles (16-bit) per screen-width
-	ld	d, $94 ;$3F | %01000000	;upper limit of the screen table
+	ld	bc, 64			;there are 32 tiles (16-bit) per screen-width
+	ld	d, 7 ;$3F|%01000000	;upper limit of the screen table
 					 ;(bit 6 is set as it is a VDP VRAM address)
 	ld	e, 7
 	
@@ -2421,56 +2429,50 @@ fillScrollTiles:		; #065e
 	ld	b, $00
 	add	hl, bc			;add twice to HL
 	add	hl, bc
-	ld	b, $32			;set BC to $32BE
+	ld	b, $32			;set BC to $BE32
 ;	ld	c, $BE			 ;(purpose unknown)
 	
 	;set the VDP address calculated earlier
 -	exx
-/*
-	ld	a, l
-	out	(SMS_VDP_CONTROL), a
-	ld	a, h
-	out	(SMS_VDP_CONTROL), a
-*/	
-	ld a,l
-	ld (tilemap_adr),a
-	ld a,h
-	sub $78
-	ld (tilemap_adr+1),a
+;	ld	a, l
+;	out	(SMS_VDP_CONTROL), a
+;	ld	a, h
+;	out	(SMS_VDP_CONTROL), a
+;	ld a,l
+;	ld (tilemap_adr),a
+;	ld a,h
+;	sub $78
+;	ld (tilemap_adr+1),a
+	ld (tilemap_adr),hl
 	;move to the next row
 	add	hl, bc
 	ld	a, h
 	cp	d			;don't go outside the screen table
 	jp	nc, +++
-;	ld a,(RAM_TEMP1)
-;	push af
+	
 --	exx
-	ld c,(hl)
-	inc hl
 	ld a,(hl)
-	ld (RAM_TEMP1),a
-	ld a,c
-	call set_tile
+	call update_tilemem
 	inc hl
-;	inc hl
+	dec b
+	ld a,(hl)
+	call update_tilemem
+	inc hl
+	dec b
+
 ;	outi				;send the tile index
 ;	outi				;send the tile meta
-	dec b
-	dec b
 	jp	nz, -
-;	pop af
-;	ld (RAM_TEMP1),a
+	
 	exx
 	pop	bc
 	pop	de
 	pop	hl
 	exx
-	ret
+	
 	;------------------------------------------------------------------------------
 ++	bit	1, (iy+vars.flags2)
-
 	jp	z, ++			;could  optimise to `ret z`?
-
 	ld	a, (RAM_VDPSCROLL_VERTICAL)
 	ld	b, $00
 	srl	a
@@ -2499,10 +2501,12 @@ fillScrollTiles:		; #065e
 	srl	a
 	add	a, c
 	ld	c, a
-	ld	hl, SMS_VDP_SCREENNAMETABLE
-	add	hl, bc
-	set	6, h
-	ex	de, hl
+;	ld	hl, SMS_VDP_SCREENNAMETABLE
+;	add	hl, bc
+;	set	6, h
+	ld e,c
+	ld d,b
+;	ex	de, hl
 	ld	hl, RAM_OVERSCROLLCACHE_VERT
 	ld	a, (RAM_VDPSCROLL_HORIZONTAL)
 	and	%00011111
@@ -2519,59 +2523,50 @@ fillScrollTiles:		; #065e
 	ld	(RAM_TEMP1), a
 	ld	a, e
 ;	out	(SMS_VDP_CONTROL), a
-	ld (tilemap_adr),a
 	and	$3F
+	ld (tilemap_adr),de
 	ld	e, a
-	ld	a, d
-	sub $78
-	ld (tilemap_adr+1),a
+;	ld	a, d
+;	ld (tilemem+1),a
 ;	out	(SMS_VDP_CONTROL), a
 	ld	b, $3E
 ;	ld	c, $BE
-;	ld a,(RAM_TEMP1)
-;	push af
 
 -	bit	6, e
 	jr	nz, +
 	inc	e
 	inc	e
-	ld c,(hl)
-	inc hl
 	ld a,(hl)
-	ld (RAM_TEMP1),a
-	ld a,c
-	call set_tile
+	call update_tilemem
 	inc hl
+	dec b
+	ld a,(hl)
+	call update_tilemem
+	inc hl
+	dec b
 
-;	outi				;send the tile index
-;	outi				;send the tile meta
-	dec b
-	dec b
-	jp nz, -
-;	pop af
-;	ld (RAM_TEMP1),a
+;	outi
+;	outi
+	jp	nz, -
 	ret
 
 +	ld	a, (RAM_TEMP1)
 	ld (tilemap_adr),a
-	ld	a, d
-	sub $78
-	ld (tilemap_adr+1),a
 ;	out	(SMS_VDP_CONTROL), a
-;	ld	a, d
+	ld	a, d
+	ld (tilemap_adr+1),a
 ;	out	(SMS_VDP_CONTROL), a
 	
 -	
-	; outi
-	; outi
-	ld c,(hl)
-	inc hl
+;	outi
+;	outi
 	ld a,(hl)
-	ld (RAM_TEMP1),a
-	ld a,c
-	call set_tile
+	call update_tilemem
 	inc hl
 	dec b
+	ld a,(hl)
+	call update_tilemem
+	inc hl
 	dec b
 	jp	nz, -
 
@@ -2707,8 +2702,6 @@ fillScreenWithFloorLayout:
 	ld	a,:S1_BlockMappings + 1
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	ld a,(RAM_TEMP1)
-	push af
 	ld	bc,$0000
 	call	getFloorLayoutRAMPosition
 	;------------------------------------------------------------------------------
@@ -2757,7 +2750,6 @@ fillScreenWithFloorLayout:
 	 ;sprites. allow just this bit if it's set
 	and	%00010000
 	ld	c,a
-	ld (RAM_TEMP1),a
 	exx
 	
 	;return the block index to HL
@@ -2779,65 +2771,64 @@ fillScreenWithFloorLayout:
 	ld	b,4			;4 rows of the block mapping
 	
 	;set the screen name address
--	ld	a,l
-	ld (tilemap_adr),a
+-
+;	ld	a,l
+;	ld (tilemap_adr),a
 ;	out	(SMS_VDP_CONTROL),a
 ;	ld	a,h
 ;	or	%01000000
 ;	out	(SMS_VDP_CONTROL),a
 
-	ld	a, h
-	sub $38
-	ld (tilemap_adr+1),a	
+;	ld	a, h
+;	sub $38
+	ld (tilemap_adr),hl
 	ld	a,(de)
-	call set_tile
+	call update_tilemem
 ;	out	(SMS_VDP_DATA),a
 	inc	de
-;	exx	
-;	ld	a,c
-;	exx	
-;	call set_simple_tile
+	exx	
+	ld	a,c
+	exx	
+	call update_tilemem
 ;	out	(SMS_VDP_DATA),a
 ;	nop	
 ;	nop	
 	ld	a,(de)
 ;	out	(SMS_VDP_DATA),a
-	call set_tile
+	call update_tilemem
 	inc	de
-;	exx	
-;	ld	a,c
-;	exx	
+	exx	
+	ld	a,c
+	exx	
 ;	out	(SMS_VDP_DATA),a
 ;	nop	
 ;	nop	
-;	call set_simple_tile
+	call update_tilemem
 	ld	a,(de)
 ;	out	(SMS_VDP_DATA),a
-	call set_tile
+	call update_tilemem
 	inc	de
-;	exx	
-;	ld	a,c
-;	exx	
+	exx	
+	ld	a,c
+	exx	
 ;	out	(SMS_VDP_DATA),a
 ;	nop	
 ;	nop	
-;	call set_simple_tile
+	call update_tilemem
 	ld	a,(de)
 ;	out	(SMS_VDP_DATA),a
-	call set_tile
+	call update_tilemem
 	inc	de
-;	exx	
-;	ld	a,c
-;	exx	
+	exx	
+	ld	a,c
+	exx	
 ;	out	(SMS_VDP_DATA),a
-;	call set_simple_tile
-/*
+	call update_tilemem
+
 	ld	a,b
 	ld	bc,64
 	add	hl,bc
 	ld	b,a
-*/
-	inc h
 	djnz	-
 	
 	pop	de
@@ -2855,14 +2846,13 @@ fillScreenWithFloorLayout:
 	ld	bc,(RAM_LEVEL_FLOORWIDTH)
 	add	hl,bc
 	ex	de,hl
-	ld	bc,$0400
+	ld	bc,$0100
 	add	hl,bc
 	ex	de,hl
 	pop	bc
 	dec	b
 	jp	nz,---
-	pop af
-	ld (RAM_TEMP1),a
+
 	ei				;enable interrupts
 	ret
 

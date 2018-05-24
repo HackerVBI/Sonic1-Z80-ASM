@@ -5,6 +5,8 @@ Vid_page		equ #40
 Tile0_spr_page		equ #20
 
 Main_emu_page		equ #10
+tilemem			equ #11
+
 RAM_PAGE_1	equ $D235
 RAM_TEMP1	equ $D20E
 RAM_SPRITETABLE equ $D000	;X/Y/I data for the 64 sprites
@@ -21,8 +23,7 @@ tileram_adr		ds 2
 			org #e40a	;tilemap ram adress
 tilemap_adr		ds 2
 			org #e40c	; set_tile_proc
-			jr set_tile
-
+;			jr set_tile
 			org #e40e	
 			jr send_palette
 
@@ -31,14 +32,168 @@ tilemap_adr		ds 2
 			org #e413
 			jp send_sprites
 			org #e416
-			jp set_simple_tile
+			jp update_tilemem
 			org #e419
 			jp cls_tileset
+			org #e41c
+			jp view_tilemem
+			org #e41f
+			jp update_2byte_tilemem
+
+
+send_palette
+; hl - pal, c-pal index
+; 	    MSB  LSB
+; 	    --BBGGRR
+; ts pal: 0RRrrrG gggBBbbb 
+			push de
+			ex de,hl
+			ld hl,pal_db
+			or a
+			rl c
+			ld l,c
+
+1			push bc
+			push hl
+			ld a,(de)
+			inc de
+			add a
+			ld c,a
+			ld b,0
+			ld hl,sms_pal
+			add hl,bc
+			ld c,(hl)
+			inc hl
+			ld b,(hl)
+			pop hl
+			ld (hl),c
+			inc hl
+			ld (hl),b
+			inc hl
+			pop bc
+			djnz 1b
+			ld hl,pal_dma
+			call set_ports
+			ex de,hl
+			pop de
+			ret
+
+/*
+
+	ld a, (RAM_VDPSCROLL_HORIZONTAL)
+	neg				;I don't understand the reason for this
+	ld c,a
+	ld a, (RAM_VDPSCROLL_VERTICAL)
+	ld b,a
+*/			
+
+view_tilemem
+			di
+			ld a,2
+			out (#fe),a
+
+			push bc
+			ld a,tilemem
+			ld bc,PAGE0
+			out (c),a
+			ld a,Tile_page
+			ld bc,PAGE1
+			out (c),a
+			pop bc	
+/*
+; simple screen viewer
+			ld hl,0
+			ld de,#4000
+			ld bc,32*256+#1c
+1			push bc
+2			ld a,(hl)
+			ld (de),a
+			inc hl
+			inc de
+			xor a
+			ld (de),a
+			inc hl
+			inc de
+			djnz 2b
+			pop bc
+			ld e,0
+			inc d
+			dec c
+			jr nz,1b
+*/
+
+
+
+
+			ld a,b
+			and	%11111000		;round the scroll to the nearest 8 pixels
+			;multiply the vertical scroll offset by 8. since the scroll offset is already
+			 ;a multiple of 8, this will give you 64 bytes per screen row (32 16-bit tiles)
+			ld h,0
+			add a			;x2
+			rl h
+			add a			;x4
+			rl h
+			add a			;x8
+			rl h
+			ld (start_tile_x+1),a
+
+			ld a,c
+			and	%11111000		;and then round to the nearest 8 pixels
+;			add 8
+			srl a			;divide by 2 ...
+			srl a			;divide by 4
+			and #3f
+			ld l,a
+			exa 
+			ld a,l
+			exa
+			ld de,#4000
+			ld c,24
+vt1			ld b,31
+vt2			exa
+			add 2
+			and #3f
+			ld l,a
+			exa
+
+			ld a,l
+start_tile_x		add 0
+			ld l,a
+			exa
+			ld a,(hl)
+			inc l
+			ld (de),a
+			inc l
+			inc e
+			inc e
+			djnz vt2
+			ld e,b
+			inc d
+			exa
+			add 2
+			exa
+			ld a,(start_tile_x+1)
+			add #40
+			ld (start_tile_x+1),a
+			ld a,0
+			adc h
+			cp 7
+			jr c,1f
+			xor a
+1			ld h,a
+			dec c
+			jr nz,vt1
 			
-start:			di
-			ld sp,#feff
-			call setup
-			jp  0                ; start the Pac-Man ROM!
+			ld a,(RAM_PAGE_1)
+			ld bc,PAGE1
+			out (c),a
+			xor a
+			ld bc,PAGE0
+			out (c),a
+			out (#fe),a
+			ei
+			ret
 
 /*
 Data format
@@ -48,7 +203,9 @@ Bit  15 14 13	12	11	  10		9    8 7 6 5 4 3 2 1 0
 Data Unused   Priority Palette Vertical  Horizontal Tile number
 				 flip	    flip
 */
-set_tile		push af
+/*
+set_tile		
+			push af
 			push hl
 			push de
 			push bc
@@ -105,107 +262,52 @@ set_tile		push af
 			pop hl
 			pop af
 			ret
-
-
-send_palette
-; hl - pal, c-pal index
-; 	    MSB  LSB
-; 	    --BBGGRR
-; ts pal: 0RRrrrG gggBBbbb 
-			push de
-			ex de,hl
-			ld hl,pal_db
-			or a
-			rl c
-			ld l,c
-
-1			push bc
-			push hl
-			ld a,(de)
-			inc de
-			add a
-			ld c,a
-			ld b,0
-			ld hl,sms_pal
-			add hl,bc
-			ld c,(hl)
-			inc hl
-			ld b,(hl)
-			pop hl
-			ld (hl),c
-			inc hl
-			ld (hl),b
-			inc hl
-			pop bc
-			djnz 1b
-/*
-;			ld a,c
-;			add a
-;			ld (pal_dma_num+1),a
-;			ld b,#10
-pal_decode		push bc
-			ld a,(de)
-			and 3	; RR
-			or a
-			rrca
-			rrca
-			rrca
-			ld b,a	; high pal byte
-			ld c,0
-			ld a,(de)
-			and 8+4	; GG
-			or a
-			rra
-			rra
-			rra
-			rr c
-			or b
-			ld b,a
-			ld a,(de)
-			and #30	; BB
-			or a
-			rra
-			or c
-			ld c,a
-			inc de
-			ld (hl),c
-			inc hl
-			ld (hl),b
-			inc hl
-			pop bc
-			djnz pal_decode
 */
-			ld hl,pal_dma
-			call set_ports
-			ex de,hl
-			pop de
-			ret
 
 
-set_simple_tile
-			push hl
+
+
+update_tilemem		push hl
 			push bc
 			push af
+			push af
 			ld bc,PAGE0
-			ld a,Tile_page
+			ld a,tilemem
 			out (c),a
 			pop af
 			ld hl,(tilemap_adr)
 			ld (hl),a
-			inc l
-;			ld a,l
-;			and #3f
-;			jr nz,1f
-;			ld l,a
-;			inc h
-1			ld (tilemap_adr),hl
+			inc hl
+			ld (tilemap_adr),hl
 			xor a
 			out (c),a
+			pop af
 			pop bc
 			pop hl
 			ret
 
-
+update_2byte_tilemem	push hl
+			push bc
+			push af
+;			push af
+			ld bc,PAGE0
+			ld a,tilemem
+			out (c),a
+;			pop af
+;			xor a
+tilemem2_adr		ld hl,(tilemap_adr)
+;			ld (hl),a
+			inc l
+;			ld a, (RAM_TEMP1)		;get the upper byte to use for the tiles
+;			ld (hl),a
+			inc hl		
+			ld (tilemap_adr),hl
+			xor a
+			out (c),a
+			pop af
+			pop bc
+			pop hl
+			ret
 
 /*
 RAM_SPRITETABLE		$D000	;X/Y/I data for the 64 sprites
@@ -221,6 +323,7 @@ send_sprites		;ld a,b
 			ld b, 64/2
 2
 			ld a,(hl)
+			sub 8
 			ld (ix+2),a
 			ld (ix+2+6),a
 			inc l
@@ -231,7 +334,8 @@ send_sprites		;ld a,b
 			jr c,1f
 			res 5,(ix+1)
 			res 5,(ix+1+6)
-1			ld (ix+0),a
+1			add #30
+			ld (ix+0),a
 			add 8
 			ld (ix+6),a
 			inc l
@@ -326,8 +430,9 @@ rocknroll		xor a
 			ret
 
 
-
-setup			ld bc,PAGE2
+start:			di
+			ld sp,#feff
+			ld bc,PAGE2
 			ld a,Vid_page
 			out (c),a
 			ld hl,0		;1111 - white
@@ -335,29 +440,7 @@ setup			ld bc,PAGE2
 			ld hl,init_ts
 			call set_ports
 			call spr_off
-			ld a,Tile_page
-			ld bc,PAGE0
-			out (c),a
-			ld hl,0
-			ld de,1
-			ld (hl),l
-			ld bc,#3fff
-			ldir
-/*
-			ld hl,0
-			ld c,32
-			xor a
-2			ld b,32
-1			ld (hl),a
-			inc a
-			inc l
-			inc l
-			djnz 1b
-			ld l,0
-			inc h
-			dec c
-			jr nz,2b
-*/
+			call cls_tileset
 			ld bc, PAGE0
 			ld a,0
 			out (c),a
@@ -367,7 +450,7 @@ setup			ld bc,PAGE2
 			inc b
 			inc a
 			out (c),a
-			ret
+			jp  0                ; start the Pac-Man ROM!
 
 cls_tileset
 		ld bc,PAGE1
@@ -454,12 +537,18 @@ init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high VPAGE,Vid_page
 			db high SYSCONFIG,6	; 
 			db high BORDER,0	; border
-			db high TSCONFIG,TSU_SEN+TSU_T0EN+TSU_T0ZEN+TSU_T1EN +TSU_T1ZEN		; TSConfig
+			db high TSCONFIG,TSU_SEN+TSU_T0EN+TSU_T0ZEN;+TSU_T1EN +TSU_T1ZEN		; TSConfig
 			db high PALSEL,0
 			db high SGPAGE,Tile0_spr_page
 			db high TMPAGE, Tile_page
 			db high T0GPAGE,Tile0_spr_page
 			db high T1GPAGE,Tile0_spr_page
+			db high T0XOFFSL,0
+			db high T1XOFFSL,0
+			db high T0YOFFSL,0
+			db high T1YOFFSL,0
+			db high T0YOFFSH,1
+			db high T1YOFFSH,1
 
 
 pal_dma			db #1a,low pal_db
@@ -535,6 +624,7 @@ clr_screen
 	include "includes.asm"
 	include "../tsconfig.asm"
 sms_pal		incbin "_spg/sms.pal"
+
 
 
 end
