@@ -1120,7 +1120,7 @@ updateVDPSprites:
 ;	ld	a, >$3F00
 ;	or	%01000000		;add bit 6 to mark an address being given
 ;	out	(SMS_VDP_CONTROL), a
-/*	
+	
 	ld	b, (iy+vars.spriteUpdateCount)
 	ld	hl, RAM_SPRITETABLE+1	;Y-position of the first sprite
 	ld	de, 3			;sprite table is 3 bytes per sprite
@@ -1130,7 +1130,8 @@ updateVDPSprites:
 	jr	z, +			;if so skip over setting the Y-positions
 
 	;set sprite Y-positions:
--	ld	a, (hl)			;get the sprite's Y-position from RAM
+-
+;	ld	a, (hl)			;get the sprite's Y-position from RAM
 ;	out	(SMS_VDP_DATA), a	;set the sprite's Y-position in the hardware
 	add	hl, de			;move to the next sprite
 	djnz	-
@@ -1153,11 +1154,15 @@ updateVDPSprites:
 
 	;move remaining sprites off screen
 -	ld	a, 224
+	ld (hl),a
+	add hl,de
 ;	out	(SMS_VDP_DATA), a
 	djnz	-
 	
 	;--- sprite X positions / indexes ---------------------------------------------
-+	ld	a, c
++	
+/*	
+	ld	a, c
 	and	a
 	ret	z
 	
@@ -3254,7 +3259,7 @@ getLevelBitFlag:
 ;____________________________________________________________________________[$0C1D]___
 ;copy power-up icon into sprite VRAM
 
-loadPowerUpIcon:
+loadPowerUpIcon:		; #0b08 (0c1d)
 ;HL : absolute address to uncompressed art data for the icons, assuming that slot 1
  ;    ($4000-$7FFF) is loaded with bank 5 ($14000-$17FFF)
 
@@ -3272,24 +3277,44 @@ loadPowerUpIcon:
 	add	hl,de			;offset into HL parameter
 	
 	ex	de,hl
-	ld	bc,$2B80
+	ld	bc,$2880	;$2B80
 	
 	add	hl,bc
 	ld	a,l
-	out	(SMS_VDP_CONTROL),a
-	ld	a,h
-	or	%01000000
-	out	(SMS_VDP_CONTROL),a
-	
-	ld	b,4
+;	out	(SMS_VDP_CONTROL),a
+;	ld	a,h
+;	or	%01000000
+;	out	(SMS_VDP_CONTROL),a
+	ld (tileram_adr),a
+	ld	a, d
+	add a,$40
+	ld (tileram_adr+1),a	
+
+	ld	b,2
 -	ld	a,(de)
-	out	(SMS_VDP_DATA),a
-	nop	
-	nop	
+	ld (temp0),a
 	inc	de
-	ld	a,(de)
-	out	(SMS_VDP_DATA),a
+	ld	a, (de)
+	ld (temp1),a
 	inc	de
+	ld	a, (de)
+	ld (temp2),a
+	inc	de
+	ld	a, (de)
+	ld (temp3),a
+	inc	de
+	push hl
+	ld hl,temp3
+	call decode_pix
+	pop hl
+
+;	out	(SMS_VDP_DATA),a
+;	nop	
+;	nop	
+;	inc	de
+;	ld	a,(de)
+;	out	(SMS_VDP_DATA),a
+;	inc	de
 	djnz	-
 	
 	;return to the previous bank number
@@ -4280,23 +4305,35 @@ _14e6:					;text
 _14f1:					;text
 .db $08, $0d, $77, $78, $79, $7a, $7b, $7c, $7d, $7e, $ff
 
+; Data from 14FC to 151B (32 bytes)
 _14fc:
-;this first bit looks like a palette
-.db $00, $01, $06, $0B, $04, $08, $0C, $3D, $1F, $39, $2A, $14, $14, $27, $00, $3F
-.db $00, $20, $35, $1B, $16, $2A, $00, $3F, $03, $0F, $01, $15, $00, $3C, $00, $3F
+.db $00 $01 $06 $0B $04 $08 $0C $3D $1F $39 $2A $14 $14 $27 $00 $3F
+.db $00 $20 $35 $1B $16 $2A $00 $3F $03 $0F $01 $15 $00 $3C $00 $3F
 
-.db $01, $00, $00, $00, $00, $00, $00, $00, $01, $00, $00, $00, $05, $00, $00, $00
-.db $10, $00, $00, $00, $30, $00, $00, $00, $50, $00, $00, $01, $00, $00, $00, $03
-.db $00, $00, $05, $00, $03, $00, $02, $30, $02, $00, $01, $30, $01, $00, $00, $30
-.db $00, $00, $1E, $15, $22, $15, $26, $15, $2A, $15, $2E, $15, $32, $15, $36, $15
-.db $3A, $15
+; Data from 151C to 154D (50 bytes)
+_DATA_151C_:
+.db $01 $00 
+_DATA_151E_:
+.db $00 $00 $00 $00 $00 $00 $01 $00 $00 $00 $05 $00 $00 $00
+.db $10 $00 $00 $00 
+; #1530
+.db $30 $00 $00 $00 $50 $00 $00 $01 $00 $00 $00 $03
+.db $00 $00 
+
+_DATA_153e_:
+.db $05 $00 $03 $00 $02 $30 $02 $00 $01 $30 $01 $00 $00 $30
+.db $00 $00
+
+; Data from 154E to 155D (16 bytes)
+_DATA_154E_:
+.db $1E $15 $22 $15 $26 $15 $2A $15 $2E $15 $32 $15 $36 $15 $3A $15
 
 ;____________________________________________________________________________[$155E]___
 ;Act Complete screen?
 
 _155e:
 	ld	a, (RAM_CURRENT_LEVEL)
-	cp		19
+	cp	19
 	jp	z,_172f
 	
 	ld	a,(RAM_VDPREGISTER_1)
@@ -4386,7 +4423,7 @@ _155e:
 +	xor	a
 	ld	(RAM_VDPSCROLL_HORIZONTAL),a
 	ld	(RAM_VDPSCROLL_VERTICAL),a
-	ld	hl,$1b8d
+	ld	hl,S1_ActComplete_Palette	;_1b8d
 	ld	a,%00000011
 	call	loadPaletteOnInterrupt
 	ld	a,(RAM_CURRENT_LEVEL)
@@ -4407,8 +4444,8 @@ _155e:
 	bit	3,(iy+vars.flags9)
 	call	nz,_1726
 	
-	ld	hl,$153e
-	ld	de,$154e
+	ld	hl,_DATA_153e_
+	ld	de,_DATA_154E_
 	ld	b,$08
 	
 -	ld	a,($D2CE)
@@ -4428,7 +4465,7 @@ _155e:
 	inc	de
 	djnz	-
 	
-	ld	de,$151e
+	ld	de,_DATA_151E_
 	jr	++++
 	
 +++	ex	de,hl
@@ -4460,7 +4497,7 @@ _155e:
 	pop	bc
 	djnz	-
 	
--	res	0,(iy+vars.flags0)
+-	res	0,(iy+vars.flags0)	; #1572
 	call	waitForInterrupt
 	
 	call	_1a18
@@ -4928,7 +4965,7 @@ _1a18:
 	ld	b,$68
 	jr	++
 	
-+	ld	hl,$151c
++	ld	hl,_DATA_151C_
 	ld	de,$D2BE
 	ld	b,$02
 	call	_1b13
@@ -5572,11 +5609,11 @@ _1f49:	;lightning is enabled...
 	ld	hl,$0082
 	sbc	hl,de
 	jr	z,+
-	ld	bc,$1fa1
+	ld	bc,_1fa1
 	ld	hl,$0064
 	sbc	hl,de
 	jr	z,++
-	ld	bc,$1f9d
+	ld	bc,_1f9d
 	ld	a,e
 	or	d
 	jr	z,++
@@ -5660,7 +5697,7 @@ _1fa9:
 	jr	nc,++
 	bit	0,(iy+vars.timeLightningFlags)
 	jr	z,+
-	ld	hl,$2047
+	ld	hl,_2047
 	call	_b60
 	ld	a,(RAM_CURRENT_LEVEL)
 	push	af
@@ -6504,55 +6541,34 @@ s_2402:
 .db $01, $30, $00
 
 _2405:
-.db $01, $00, $00			;Special Stage 1?
-.db $01, $00, $00			;Special Stage 2?
-.db $00, $45, $00			;Special Stage 3?
-.db $00, $50, $00			;Special Stage 4?
-.db $00, $45, $00			;Special Stage 5?
-.db $00, $50, $00			;Special Stage 6?
-.db $00, $50, $00			;Special Stage 7?
-.db $00, $30, $00			;Special Stage 8?
-.db $01, $00, $00
-.db $01, $00, $01
-.db $02, $00, $01
-.db $02, $FF, $02
-.db $03, $01, $01
-.db $03, $FE, $02
-.db $04, $01, $01
-.db $04, $FD, $03
-.db $05, $02, $01
-.db $06, $FB, $03
-.db $06, $03, $00
-.db $07, $FA, $03
-.db $06, $05, $FF
-.db $08, $F9, $03
-.db $07, $06, $FE
-.db $09, $F7, $03
-.db $07, $08, $FD
-.db $0A, $F6, $02
-.db $07, $09, $FB
-.db $0B, $F4, $01
-.db $06, $0B, $FA
-.db $0B, $F3, $00, $06, $0D, $F8, $0B, $F2, $FF
-.db $05, $0E, $F6, $0B, $F1, $FD, $03, $10, $F4, $0B, $F0, $FB, $02, $12, $F2, $0A
-.db $F0, $F9, $00, $13, $F0, $09, $F0, $F7, $FE, $14, $EE, $08, $F0, $F4, $FC, $15
-.db $EC, $07, $F0, $F2, $F9, $15, $EA, $05, $F1, $EF, $F6, $16, $E9, $02, $F2, $ED
-.db $F4, $15, $E7, $00, $F4, $EB, $F1, $15, $E6, $FD, $F5, $E8, $EE, $14, $E5, $FA
-.db $F8, $E6, $EB, $13, $E5, $F7, $FA, $E4, $E8, $11, $E5, $F4, $FD, $E3, $E5, $0F
-.db $E5, $F1, $00, $E1, $E3, $0D, $E6, $ED, $03, $E0, $E0, $0A, $E7, $EA, $07, $E0
-.db $DE, $07, $E9, $E6, $0B, $DF, $DD, $04, $EB, $E3, $0E, $DF, $DB, $00, $EE, $E0
-.db $12, $E0, $DA, $FC, $F1, $DD, $16, $E1, $DA, $F8, $F4, $DB, $1A, $E3, $DA, $F4
-.db $F8, $D8, $1E, $E5, $DA, $EF, $FC, $D7, $22, $E8, $DB, $EB, $00, $D5, $25, $EB
-.db $DC, $E6, $05, $D4, $28, $EE, $DE, $E2, $09, $D4, $2B, $F2, $E1, $DE, $0E, $D4
-.db $2D, $F6, $E4, $D9, $13, $D5, $2F, $FB, $E8, $D6, $18, $D6, $31, $00, $EC, $D2
-.db $1D, $D8, $32, $05, $F0, $CF, $22, $DA, $32, $0B, $F5, $CD, $27, $DD, $32, $10
-.db $FA, $CB, $2B, $E0, $31, $16, $00, $C9, $2F, $E5, $2F, $1B, $06, $C8, $33, $E9
-.db $2D, $21, $0C, $C8, $36, $EE, $2B, $26, $12, $C8, $39, $F4, $27, $2B, $18, $CA
-.db $3B, $FA, $23, $30, $1E, $CB, $3D, $00, $1E, $35, $24, $CE, $3E, $06, $19, $39
-.db $2A, $D1, $3E, $0D, $14, $3C, $30, $D5, $3D, $14, $0D, $3F, $35, $D9, $3C, $1B
-.db $07, $41, $3A, $DF, $3A, $21, $00, $43, $3E, $E4, $37, $28, $F9, $44, $42, $EB
-.db $33, $2E, $F2, $44, $45, $F1, $2F, $34, $EA, $43, $47, $F9, $2A, $3A, $E3, $41
-.db $49, $00, $24, $3F, $DC, $3F
+.db $01 $00 $00 $01 $00 $00 $00 $45 $00 $00 $50 $00 $00 $45 $00 $00
+.db $50 $00 $00 $50 $00 $00 $30 $00
+
+; Data from 241D to 258A (366 bytes)
+_DATA_241D_:
+.db $01 $00 $00 $01 $00 $01 $02 $00 $01 $02 $FF $02 $03 $01 $01 $03
+.db $FE $02 $04 $01 $01 $04 $FD $03 $05 $02 $01 $06 $FB $03 $06 $03
+.db $00 $07 $FA $03 $06 $05 $FF $08 $F9 $03 $07 $06 $FE $09 $F7 $03
+.db $07 $08 $FD $0A $F6 $02 $07 $09 $FB $0B $F4 $01 $06 $0B $FA $0B
+.db $F3 $00 $06 $0D $F8 $0B $F2 $FF $05 $0E $F6 $0B $F1 $FD $03 $10
+.db $F4 $0B $F0 $FB $02 $12 $F2 $0A $F0 $F9 $00 $13 $F0 $09 $F0 $F7
+.db $FE $14 $EE $08 $F0 $F4 $FC $15 $EC $07 $F0 $F2 $F9 $15 $EA $05
+.db $F1 $EF $F6 $16 $E9 $02 $F2 $ED $F4 $15 $E7 $00 $F4 $EB $F1 $15
+.db $E6 $FD $F5 $E8 $EE $14 $E5 $FA $F8 $E6 $EB $13 $E5 $F7 $FA $E4
+.db $E8 $11 $E5 $F4 $FD $E3 $E5 $0F $E5 $F1 $00 $E1 $E3 $0D $E6 $ED
+.db $03 $E0 $E0 $0A $E7 $EA $07 $E0 $DE $07 $E9 $E6 $0B $DF $DD $04
+.db $EB $E3 $0E $DF $DB $00 $EE $E0 $12 $E0 $DA $FC $F1 $DD $16 $E1
+.db $DA $F8 $F4 $DB $1A $E3 $DA $F4 $F8 $D8 $1E $E5 $DA $EF $FC $D7
+.db $22 $E8 $DB $EB $00 $D5 $25 $EB $DC $E6 $05 $D4 $28 $EE $DE $E2
+.db $09 $D4 $2B $F2 $E1 $DE $0E $D4 $2D $F6 $E4 $D9 $13 $D5 $2F $FB
+.db $E8 $D6 $18 $D6 $31 $00 $EC $D2 $1D $D8 $32 $05 $F0 $CF $22 $DA
+.db $32 $0B $F5 $CD $27 $DD $32 $10 $FA $CB $2B $E0 $31 $16 $00 $C9
+.db $2F $E5 $2F $1B $06 $C8 $33 $E9 $2D $21 $0C $C8 $36 $EE $2B $26
+.db $12 $C8 $39 $F4 $27 $2B $18 $CA $3B $FA $23 $30 $1E $CB $3D $00
+.db $1E $35 $24 $CE $3E $06 $19 $39 $2A $D1 $3E $0D $14 $3C $30 $D5
+.db $3D $14 $0D $3F $35 $D9 $3C $1B $07 $41 $3A $DF $3A $21 $00 $43
+.db $3E $E4 $37 $28 $F9 $44 $42 $EB $33 $2E $F2 $44 $45 $F1 $2F $34
+.db $EA $43 $47 $F9 $2A $3A $E3 $41 $49 $00 $24 $3F $DC $3F
 
 ;____________________________________________________________________________[$258B]___
 
@@ -6624,7 +6640,7 @@ _LABEL_258B_133:
 	ld	a,index_music_allEmeralds
 	rst	$18			;`playMusic`
 	
-	ld	hl,$241d
+	ld	hl,_DATA_241D_
 	ld	b,$3d
 	
 --	push	bc
@@ -6931,8 +6947,8 @@ __	ld      a,(hl)
 ---	push	bc
 	ld	bc,$000c
 	call	_2718
-	ld	de,$3aa4
-	ld	hl,$3ae4
+	ld	de,S1_SolidityData_0+$3aa4-$3a75
+	ld	hl,S1_SolidityData_0+$3ae4-$3a75
 	ld	b,$09
 	
 --	push	bc
@@ -8091,7 +8107,7 @@ _32e2:
 	ld	a,(RAM_TEMP6)
 	ld	e,a
 	ld	d,$00
-	ld	hl,$3fbf		;data?
+	ld	hl,S1_SolidityData_7+97		;$3fbf		;data?
 	add	hl,de
 	ld	c,(hl)
 	ld	(ix+object.Xspeed+0),d
@@ -8184,7 +8200,7 @@ _32e2:
 	exx	
 	ld	hl,(RAM_TEMP6)
 	ld	h,$00
-	ld	de,$3ff0		;data?
+	ld	de,S1_SolidityData_7+$C8;$3ff0		;data?
 	add	hl,de
 	add	a,(hl)
 	exx	
@@ -8200,7 +8216,7 @@ _32e2:
 	exx	
 	ld	hl,(RAM_TEMP6)
 	ld	h,$00
-	ld	de,$3ff0		;data?
+	ld	de,S1_SolidityData_7+$C8 ;$3ff0		;data?
 	add	hl,de
 	add	a,(hl)
 	exx	
@@ -8217,7 +8233,7 @@ _32e2:
 	ld	a,(RAM_TEMP6)
 	ld	e,a
 	ld	d,$00
-	ld	hl,$3f90		;data?
+	ld	hl,S1_SolidityData_7+$3f90-$3f28		;data?
 	add	hl,de
 	ld	c,(hl)
 	ld	(ix+object.Yspeed+0),d
@@ -8764,7 +8780,7 @@ getFloorLayoutRAMPositionForObject:
 ;____________________________________________________________________________[$37E0]___
 ;copy the current Sonic animation frame into the sprite data
 
-updateSonicSpriteFrame:
+updateSonicSpriteFrame:				; #36b0
 
 	ld	de, (RAM_SONIC_CURRENT_FRAME)
 	ld	hl, (RAM_SONIC_PREVIOUS_FRAME)
@@ -8772,14 +8788,16 @@ updateSonicSpriteFrame:
 	and	a
 	sbc	hl, de
 	ret	z
-	
-	ld	hl, $3680		;location in VRAM of the Sonic sprite
+
+;	ret
+
+	ld	hl, $30d0;$3680		;location in VRAM of the Sonic sprite
 	ex	de, hl
 	
 	;I can't find an instance where bit 0 of IY+$06 is set,
 	 ;this may be dead code
 	bit	0, (iy+vars.flags6)
-;	jp	nz, +
+	jp	nz, +
 	
 	;------------------------------------------------------------------------------
 /*
@@ -8820,10 +8838,85 @@ updateSonicSpriteFrame:
 	outi
 	outi
 	out	(SMS_VDP_DATA), a
-*/	ld b,4
+*/	
+
+	ld b,4
 sd1
 
 	ld a,(hl)
+	ld (temp0),a
+	inc hl
+	ld a,(hl)
+	ld (temp1),a
+	inc hl
+	ld a,(hl)
+	ld (temp2),a
+	inc hl
+	xor a
+	ld (temp3),a
+	push hl
+	ld hl,temp3
+	call decode_pix
+	pop hl
+	
+	djnz sd1
+
+	dec	e
+	jp	nz, -
+	
+	ld	hl, (RAM_SONIC_CURRENT_FRAME)
+	ld	(RAM_SONIC_PREVIOUS_FRAME), hl
+	ret
+	
+	;------------------------------------------------------------------------------
+	;adds 285 to the frame address. purpose unknown...
++	ld	bc, $011D
+	add	hl, bc
+/*	
+	ld	a, e
+	out	(SMS_VDP_CONTROL), a
+	ld	a, d
+	or	%01000000
+	out	(SMS_VDP_CONTROL), a
+*/
+	ld a, e
+	ld (tileram_adr),a
+	ld a, d
+	add a,$40
+	ld (tileram_adr+1),a
+
+	exx
+	push	bc
+	ld	b, $18
+	exx
+	ld	de, $FFFA
+;	ld	c, $BE
+;	xor	a
+	
+-
+/*	outi
+	outi
+	outi
+	out	(SMS_VDP_DATA), a
+	add	hl, de
+	outi
+	outi
+	outi
+	out	(SMS_VDP_DATA), a
+	add	hl, de
+	outi
+	outi
+	outi
+	out	(SMS_VDP_DATA), a
+	add	hl, de
+	outi
+	outi
+	outi
+	out	(SMS_VDP_DATA), a
+	add	hl, de
+*/
+	ld b,4
+ss1	ld a,(hl)
 	ld (temp0),a
 	inc hl
 	ld a,(hl)
@@ -8839,54 +8932,8 @@ sd1
 	ld hl,temp3
 	call decode_pix
 	pop hl
-	
-	djnz sd1
-	dec	e
-	jp	nz, -
-	
-	ld	hl, (RAM_SONIC_CURRENT_FRAME)
-	ld	(RAM_SONIC_PREVIOUS_FRAME), hl
-	ret
-	
-	;------------------------------------------------------------------------------
-	;adds 285 to the frame address. purpose unknown...
-+	ld	bc, $011D
-	add	hl, bc
-	
-	ld	a, e
-	out	(SMS_VDP_CONTROL), a
-	ld	a, d
-	or	%01000000
-	out	(SMS_VDP_CONTROL), a
-	
-	exx
-	push	bc
-	ld	b, $18
-	exx
-	ld	de, $FFFA
-	ld	c, $BE
-	xor	a
-	
--	outi
-	outi
-	outi
-	out	(SMS_VDP_DATA), a
 	add	hl, de
-	outi
-	outi
-	outi
-	out	(SMS_VDP_DATA), a
-	add	hl, de
-	outi
-	outi
-	outi
-	out	(SMS_VDP_DATA), a
-	add	hl, de
-	outi
-	outi
-	outi
-	out	(SMS_VDP_DATA), a
-	add	hl, de
+	djnz ss1
 	exx
 	dec	b
 	exx
@@ -8901,15 +8948,15 @@ sd1
 
 ;____________________________________________________________________________[$3879]___
 
-updateRingFrame:
+updateRingFrame:				; $374с
 	ld	de,(RAM_RING_CURRENT_FRAME)
 	ld	hl,(RAM_RING_PREVIOUS_FRAME)
 	
 	and	a
 	sbc	hl,de
 	ret	z
-	
-	ld	hl,$1f80		;location in VRAM of the ring graphics
+
+	ld	hl,$18f0 ;$1f80		;location in VRAM of the ring graphics
 	ex	de,hl
 	di	
 /*
@@ -8928,39 +8975,39 @@ updateRingFrame:
 	ld	b,$20
 -
 /*
-	ld a,(hl)
+	ld	a,(hl)
+
+;	out	(SMS_VDP_DATA),a
+;	nop	
+	inc	hl
+	ld	a,(hl)
+;	out	(SMS_VDP_DATA),a
+;	nop	
+	inc	hl
+	ld	a,(hl)
+;	out	(SMS_VDP_DATA),a
+;	nop	
+	inc	hl
+	ld	a,(hl)
+;	out	(SMS_VDP_DATA),a
+	inc	hl
+*/
+	ld	a, (hl)
 	ld (temp0),a
-	inc hl
-	ld a,(hl)
+	inc	hl
+	ld	a, (hl)
 	ld (temp1),a
-	inc hl
-	ld a,(hl)
+	inc	hl
+	ld	a, (hl)
 	ld (temp2),a
-	inc hl
-	ld a,(hl)
+	inc	hl
+	ld	a, (hl)
 	ld (temp3),a
-	inc hl
+	inc	hl
 	push hl
 	ld hl,temp3
 	call decode_pix
 	pop hl
-*/
-/*	ld	a,(hl)
-	out	(SMS_VDP_DATA),a
-	nop	
-	inc	hl
-	ld	a,(hl)
-	out	(SMS_VDP_DATA),a
-	nop	
-	inc	hl
-	ld	a,(hl)
-	out	(SMS_VDP_DATA),a
-	nop	
-	inc	hl
-	ld	a,(hl)
-	out	(SMS_VDP_DATA),a
-	inc	hl
-*/
 	djnz	-
 	
 	ei	
@@ -9054,52 +9101,30 @@ _LABEL_38B0_51:
 	add	hl, bc
 	ld	de, ($D2AF)
 	ld	b, $02
-	ld a,(RAM_TEMP1)
-	push af
--	ld	a, l
-	ld (tilemap_adr),a
+
+-	ld (tilemap_adr),hl
 ;	out	(SMS_VDP_CONTROL), a
-	ld	a, h
-	ld (tilemap_adr+1),a
 ;	or	%01000000
 ;	out	(SMS_VDP_CONTROL), a
-/*	
-	ld a, (de)
-	ld c,a
-	inc de
-	ld a,(de)
-	ld (RAM_TEMP1),a
-	ld a,c
-	call set_tile
 
-	inc de
-	ld a, (de)
-	ld c,a
+	ld a,(de)
+	call update_tilemem
 	inc de
 	ld a,(de)
-	ld (RAM_TEMP1),a
-	ld a,c
-	call set_tile
-	inc	de	
-*/	
-;	out	(SMS_VDP_DATA), a
-;	nop
-;	nop
-;	out	(SMS_VDP_DATA), a
-;	nop
-;	nop
-;	out	(SMS_VDP_DATA), a
-;	nop
-;	nop
-;	out	(SMS_VDP_DATA), a
-;	ld	a, b
-;	ld	bc, $0040
-;	add	hl, bc
-;	ld	b, a
-	inc h
+	call update_tilemem
+	inc de
+	ld a,(de)
+	call update_tilemem
+	inc de
+	ld a,(de)
+	call update_tilemem
+	inc de
+
+	ld	a, b
+	ld	bc, $0040
+	add	hl, bc
+	ld	b, a
 	djnz	-
-	pop af
-	ld (RAM_TEMP1),a
 	ret
 
 ;____________________________________________________________________________[$3956]___
@@ -21562,7 +21587,7 @@ _b821:
 	call	getFloorLayoutRAMPositionForObject
 	ld	e,(hl)
 	ld	d,$00
-	ld	hl,$3f28
+	ld	hl,S1_SolidityData_7
 	add	hl,de
 	ld	a,(hl)
 	and	$3f

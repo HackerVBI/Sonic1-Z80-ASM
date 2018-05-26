@@ -1,6 +1,6 @@
 @ECHO OFF
 CLS
-COLOR 80
+COLOR 17
 
 CD %~dp0
 

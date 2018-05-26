@@ -89,8 +89,8 @@ send_palette
 
 view_tilemem
 			di
-			ld a,2
-			out (#fe),a
+;			ld a,2
+;			out (#fe),a
 
 			push bc
 			ld a,tilemem
@@ -122,6 +122,25 @@ view_tilemem
 			jr nz,1b
 */
 
+/*
+; simple tile viewer
+			ld de,#0000
+			ld hl,#4000
+			ld bc,32*256+#20
+1			push bc
+2			ld (hl),e
+			inc hl
+			ld (hl),d
+			inc hl
+			inc de
+			djnz 2b
+			pop bc
+			ld l,0
+			inc h
+			dec c
+			jr nz,1b
+*/
+
 
 
 
@@ -148,15 +167,14 @@ view_tilemem
 			exa 
 			ld a,l
 			exa
-			ld de,#4000
-			ld c,24
-vt1			ld b,31
+			ld de,#4000		; TileMap adress
+			ld c,24			; screen height
+vt1			ld b,31			; screen width
 vt2			exa
 			add 2
 			and #3f
 			ld l,a
 			exa
-
 			ld a,l
 start_tile_x		add 0
 			ld l,a
@@ -184,6 +202,7 @@ start_tile_x		add 0
 1			ld h,a
 			dec c
 			jr nz,vt1
+
 			
 			ld a,(RAM_PAGE_1)
 			ld bc,PAGE1
@@ -191,7 +210,7 @@ start_tile_x		add 0
 			xor a
 			ld bc,PAGE0
 			out (c),a
-			out (#fe),a
+;			out (#fe),a
 			ei
 			ret
 
@@ -313,42 +332,55 @@ tilemem2_adr		ld hl,(tilemap_adr)
 RAM_SPRITETABLE		$D000	;X/Y/I data for the 64 sprites
 */
 
-send_sprites		;ld a,b
-			;or a
-			;ret z
+send_sprites
+;			ld a,b
+;			or a
+;			ret z
+;		ld a,1
+;		out (#fe),a	
 			push ix
 			ld hl,RAM_SPRITETABLE
 			ld de,6*2
 			ld ix,spr
-			ld b, 64/2
-2
-			ld a,(hl)
+;			ld a,b
+;			cp 84/2+1
+;			jr c,2f
+			ld b,84/2
+
+2			ld a,(hl)
 			sub 8
 			ld (ix+2),a
 			ld (ix+2+6),a
 			inc l
-			set 5,(ix+1) ; SP_ACT
-			set 5,(ix+1+6) ; SP_ACT
 			ld a,(hl)
 			cp 224
-			jr c,1f
-			res 5,(ix+1)
-			res 5,(ix+1+6)
-1			add #30
+			jr z,1f
+			set 5,(ix+1) ; SP_ACT
+			set 5,(ix+1+6) ; SP_ACT
+			add #30
 			ld (ix+0),a
 			add 8
 			ld (ix+6),a
+			jr 3f
+1			res 5,(ix+1)
+			res 5,(ix+1+6)
 			inc l
+			jr 5f
+
+3			inc l
 			ld a,(hl)
 			ld (ix+4),a
 			inc a
 			ld (ix+4+6),a
-			inc l
+5			inc l
 			add ix,de
 			djnz 2b
 			pop ix
 			ld hl,sprites
-			jp set_ports
+			call set_ports
+;		xor a
+;		out (#fe),a
+		ret
 
 /*
 The tile data is in a planar format, split by tile row. That means that the first byte contains the least significant bit, 
@@ -542,7 +574,7 @@ init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high SGPAGE,Tile0_spr_page
 			db high TMPAGE, Tile_page
 			db high T0GPAGE,Tile0_spr_page
-			db high T1GPAGE,Tile0_spr_page
+//			db high T1GPAGE,Tile0_spr_page
 			db high T0XOFFSL,0
 			db high T1XOFFSL,0
 			db high T0YOFFSL,0
@@ -575,6 +607,7 @@ sprites		db #1a,low spr_db
 
 	align 2
 spr_db		
+
 		DB 0
 		DB %01000000	; leap
 		DB 0
@@ -582,17 +615,17 @@ spr_db
 		DB 0
 		DB %11100000
 
-		
+/*		
 		DB 0
 		DB %01000000	; leap
 		DB 0
 		DB %00010000
 		DB 0
 		DB %11100000
-
+*/
 
 spr
-		dup 64
+		dup 84
 		db 0		;y
 		db SP_SIZE8+SP_ACT
 		db #0		;x
