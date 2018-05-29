@@ -432,7 +432,7 @@
 	;spriteLayout		$D40B/C
 
 ;======================================================================================
-.include "tsconfig.asm"
+.include "WLADX/tsconfig.asm"
 .BANK 0
 .UNBACKGROUND 0 $3fff
 ;.UNBACKGROUND $49e9 $49ec

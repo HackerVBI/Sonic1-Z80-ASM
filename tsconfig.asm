@@ -3,175 +3,178 @@
 
 ; -- TS-config port regs
 
-.DEF VCONFIG         $00AF
-.DEF STATUS          $00AF
-.DEF VPAGE           $01AF
-.DEF GXOFFSL         $02AF
-.DEF GXOFFSH         $03AF
-.DEF GYOFFSL         $04AF
-.DEF GYOFFSH         $05AF
-.DEF TSCONFIG        $06AF
-.DEF PALSEL          $07AF
-.DEF BORDER          $0FAF
-.DEF PAGE0           $10AF
-.DEF PAGE1           $11AF
-.DEF PAGE2           $12AF
-.DEF PAGE3           $13AF
-.DEF FMADDR          $15AF
-.DEF TMPAGE          $16AF
-.DEF T0GPAGE         $17AF
-.DEF T1GPAGE         $18AF
-.DEF SGPAGE          $19AF
-.DEF DMASADDRL       $1AAF
-.DEF DMASADDRH       $1BAF
-.DEF DMASADDRX       $1CAF
-.DEF DMADADDRL       $1DAF
-.DEF DMADADDRH       $1EAF
-.DEF DMADADDRX       $1FAF
-.DEF SYSCONFIG       $20AF
-.DEF MEMCONFIG       $21AF
-.DEF HSINT           $22AF
-.DEF VSINTL          $23AF
-.DEF VSINTH          $24AF
-.DEF DMALEN          $26AF
-.DEF DMACTR          $27AF
-.DEF DMASTATUS       $27AF
-.DEF DMANUM          $28AF
-.DEF FDDVIRT         $29AF
-.DEF INTMASK         $2AAF
-.DEF CacheConfig	$2BAF
-.DEF T0XOFFSL        $40AF
-.DEF T0XOFFSH        $41AF
-.DEF T0YOFFSL        $42AF
-.DEF T0YOFFSH        $43AF
-.DEF T1XOFFSL        $44AF
-.DEF T1XOFFSH        $45AF
-.DEF T1YOFFSL        $46AF
-.DEF T1YOFFSH        $47AF
+VCONFIG         equ $00AF
+STATUS          equ $00AF
+VPAGE           equ $01AF
+GXOFFSL         equ $02AF
+GXOFFSH         equ $03AF
+GYOFFSL         equ $04AF
+GYOFFSH         equ $05AF
+TSCONFIG        equ $06AF
+PALSEL          equ $07AF
+BORDER          equ $0FAF
+PAGE0           equ $10AF
+PAGE1           equ $11AF
+PAGE2           equ $12AF
+PAGE3           equ $13AF
+FMADDR          equ $15AF
+TMPAGE          equ $16AF
+T0GPAGE         equ $17AF
+T1GPAGE         equ $18AF
+SGPAGE          equ $19AF
+DMASADDRL       equ $1AAF
+DMASADDRH       equ $1BAF
+DMASADDRX       equ $1CAF
+DMADADDRL       equ $1DAF
+DMADADDRH       equ $1EAF
+DMADADDRX       equ $1FAF
+SYSCONFIG       equ $20AF
+MEMCONFIG       equ $21AF
+HSINT           equ $22AF
+VSINTL          equ $23AF
+VSINTH          equ $24AF
+DMALEN          equ $26AF
+DMACTR          equ $27AF
+DMASTATUS       equ $27AF
+DMANUM          equ $28AF
+FDDVIRT         equ $29AF
+INTMASK         equ $2AAF
+CacheConfig	equ $2BAF
+T0XOFFSL        equ $40AF
+T0XOFFSH        equ $41AF
+T0YOFFSL        equ $42AF
+T0YOFFSH        equ $43AF
+T1XOFFSL        equ $44AF
+T1XOFFSH        equ $45AF
+T1YOFFSL        equ $46AF
+T1YOFFSH        equ $47AF
 
- ; TS parameters
-.DEF FM_EN           $10
- 
- ; VIDEO
-.DEF VID_256X192     $00
-.DEF VID_320X200     $40
-.DEF VID_320X240     $80
-.DEF VID_360X288     $C0
-.DEF VID_RASTER_BS	6
+; TS parameters
+FM_EN           equ $10
 
-.DEF VID_ZX          $00
-.DEF VID_16C         $01
-.DEF VID_256C        $02
-.DEF VID_TEXT        $03
-.DEF VID_NOGFX       $20
-.DEF VID_MODE_BS		0
+; VIDEO
+VID_256X192     equ $00
+VID_320X200     equ $40
+VID_320X240     equ $80
+VID_360X288     equ $C0
+VID_RASTER_BS	equ 6
+
+VID_ZX          equ $00
+VID_16C         equ $01
+VID_256C        equ $02
+VID_TEXT        equ $03
+VID_NOGFX       equ $20
+VID_MODE_BS		equ 0
 
 ; PALSEL
-.DEF PAL_GPAL_MASK	$0F
-.DEF PAL_GPAL_BS		0
-.DEF PAL_T0PAL_MASK	$30
-.DEF PAL_T0PAL_BS	4
-.DEF PAL_T1PAL_MASK	$C0
-.DEF PAL_T1PAL_BS	6
+PAL_GPAL_MASK	equ $0F
+PAL_GPAL_BS		equ 0
+PAL_T0PAL_MASK	equ $30
+PAL_T0PAL_BS	equ 4
+PAL_T1PAL_MASK	equ $C0
+PAL_T1PAL_BS	equ 6
 
 ; TSU
-.DEF TSU_T0ZEN		$04
-.DEF TSU_T1ZEN		$08
-.DEF TSU_T0EN		$20
-.DEF TSU_T1EN		$40
-.DEF TSU_SEN			$80
+TSU_T0ZEN		equ $04
+TSU_T1ZEN		equ $08
+TSU_T0EN		equ $20
+TSU_T1EN		equ $40
+TSU_SEN			equ $80
 
 ; SYSTEM
-.DEF SYS_ZCLK3_5		$00
-.DEF SYS_ZCLK7		$01
-.DEF SYS_ZCLK14		$02
-.DEF SYS_ZCLK_BS		0
+SYS_ZCLK3_5		equ $00
+SYS_ZCLK7		equ $01
+SYS_ZCLK14		equ $02
+SYS_ZCLK_BS		equ 0
 
-.DEF SYS_CACHEEN		$04
+SYS_CACHEEN		equ $04
 
 ; MEMORY
-.DEF MEM_ROM128		$01
-.DEF MEM_W0WE		$02
-.DEF MEM_W0MAP_N		$04
-.DEF MEM_W0RAM		$08
+MEM_ROM128		equ $01
+MEM_W0WE		equ $02
+MEM_W0MAP_N		equ $04
+MEM_W0RAM		equ $08
 
-.DEF MEM_LCK512		$00
-.DEF MEM_LCK128		$40
-.DEF MEM_LCKAUTO		$80
-.DEF MEM_LCK1024		$C0
-.DEF MEM_LCK_BS		6
+MEM_LCK512		equ $00
+MEM_LCK128		equ $40
+MEM_LCKAUTO		equ $80
+MEM_LCK1024		equ $C0
+MEM_LCK_BS		equ 6
 
 ; INT
-.DEF INT_VEC_FRAME	$FF
-.DEF INT_VEC_LINE	$FD
-.DEF INT_VEC_DMA		$FB
+INT_VEC_FRAME	equ $FF
+INT_VEC_LINE	equ $FD
+INT_VEC_DMA		equ $FB
 
-.DEF INT_MSK_FRAME	$01
-.DEF INT_MSK_LINE	$02
-.DEF INT_MSK_DMA		$04
+INT_MSK_FRAME	equ $01
+INT_MSK_LINE	equ $02
+INT_MSK_DMA		equ $04
 
 ; DMA
-.DEF DMA_WNR         $80
-.DEF DMA_SALGN       $20
-.DEF DMA_DALGN       $10
-.DEF DMA_ASZ         $08
+DMA_WNR         equ $80
+DMA_SALGN       equ $20
+DMA_DALGN       equ $10
+DMA_ASZ         equ $08
+DMA_OPT		equ $40
 
-.DEF DMA_RAM         $01
-.DEF DMA_BLT         $81
-.DEF DMA_FILL	$04
-.DEF DMA_SPI_RAM     $02
-.DEF DMA_RAM_SPI     $82
-.DEF DMA_IDE_RAM     $03
-.DEF DMA_RAM_IDE     $83
-.DEF DMA_RAM_CRAM    $84
-.DEF DMA_RAM_SFILE   $85
+DMA_RAM         equ $01
+DMA_BLT         equ $81
+DMA_BLT2        equ $6	
+DMA_FILL	equ $04
+DMA_SPI_RAM     equ $02
+DMA_RAM_SPI     equ $82
+DMA_IDE_RAM     equ $03
+DMA_RAM_IDE     equ $83
+DMA_RAM_CRAM    equ $84
+DMA_RAM_SFILE   equ $85
 
- ; SPRITES
-.DEF SP_XF			$80
-.DEF SP_YF			$80
-.DEF SP_LEAP			$40
-.DEF SP_ACT			$20
+; SPRITES
+SP_XF			equ $80
+SP_YF			equ $80
+SP_LEAP			equ $40
+SP_ACT			equ $20
 
-.DEF SP_SIZE8		$00
-.DEF SP_SIZE16		$02
-.DEF SP_SIZE24		$04
-.DEF SP_SIZE32		$06
-.DEF SP_SIZE40		$08
-.DEF SP_SIZE48		$0A
-.DEF SP_SIZE56		$0C
-.DEF SP_SIZE64		$0E
-.DEF SP_SIZE_BS		1
+SP_SIZE8		equ $00
+SP_SIZE16		equ $02
+SP_SIZE24		equ $04
+SP_SIZE32		equ $06
+SP_SIZE40		equ $08
+SP_SIZE48		equ $0A
+SP_SIZE56		equ $0C
+SP_SIZE64		equ $0E
+SP_SIZE_BS		equ 1
 
-.DEF SP_PAL_MASK		$F0
+SP_PAL_MASK		equ $F0
 
-.DEF SP_XF_W			$8000
-.DEF SP_YF_W			$8000
-.DEF SP_LEAP_W		$4000
-.DEF SP_ACT_W		$2000
+SP_XF_W			equ $8000
+SP_YF_W			equ $8000
+SP_LEAP_W		equ $4000
+SP_ACT_W		equ $2000
 
-.DEF SP_SIZE8_W		$0000
-.DEF SP_SIZE16_W		$0200
-.DEF SP_SIZE24_W		$0400
-.DEF SP_SIZE32_W		$0600
-.DEF SP_SIZE40_W		$0800
-.DEF SP_SIZE48_W		$0A00
-.DEF SP_SIZE56_W		$0C00
-.DEF SP_SIZE64_W		$0E00
-.DEF SP_SIZE_BS_W	9
+SP_SIZE8_W		equ $0000
+SP_SIZE16_W		equ $0200
+SP_SIZE24_W		equ $0400
+SP_SIZE32_W		equ $0600
+SP_SIZE40_W		equ $0800
+SP_SIZE48_W		equ $0A00
+SP_SIZE56_W		equ $0C00
+SP_SIZE64_W		equ $0E00
+SP_SIZE_BS_W	equ 9
 
-.DEF SP_X_MASK_W		$01FF
-.DEF SP_Y_MASK_W		$01FF
-.DEF SP_TNUM_MASK_W	$0FFF
-.DEF SP_PAL_MASK_W	$F000
+SP_X_MASK_W		equ $01FF
+SP_Y_MASK_W		equ $01FF
+SP_TNUM_MASK_W	equ $0FFF
+SP_PAL_MASK_W	equ $F000
 
 ; TILES
-.DEF TL_XF			$40
-.DEF TL_YF			$80
-.DEF TL_PAL_MASK		$30
-.DEF TL_PAL_BS		4
+TL_XF			equ $40
+TL_YF			equ $80
+TL_PAL_MASK		equ $30
+TL_PAL_BS		equ 4
 
-.DEF TL_XF_W			$4000
-.DEF TL_YF_W			$8000
-.DEF TL_TNUM_MASK_W	$0FFF
-.DEF TL_PAL_MASK_W	$3000
-.DEF TL_PAL_BS_W		12
+TL_XF_W			equ $4000
+TL_YF_W			equ $8000
+
+TL_TNUM_MASK_W	equ $0FFF
+TL_PAL_MASK_W	equ $3000
+TL_PAL_BS_W		equ 12

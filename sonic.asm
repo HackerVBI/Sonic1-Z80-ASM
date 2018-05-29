@@ -11,7 +11,7 @@ RAM_PAGE_1	equ $D235
 RAM_TEMP1	equ $D20E
 RAM_SPRITETABLE equ $D000	;X/Y/I data for the 64 sprites
 
-
+viewer=1
 			org #e400
 main
 			jp start
@@ -121,8 +121,8 @@ view_tilemem
 			dec c
 			jr nz,1b
 */
+	IF viewer=0
 
-/*
 ; simple tile viewer
 			ld de,#0000
 			ld hl,#4000
@@ -139,10 +139,10 @@ view_tilemem
 			inc h
 			dec c
 			jr nz,1b
-*/
+	ENDIF
 
 
-
+	IF viewer=1
 
 			ld a,b
 			and	%11111000		;round the scroll to the nearest 8 pixels
@@ -203,7 +203,7 @@ start_tile_x		add 0
 			dec c
 			jr nz,vt1
 
-			
+	ENDIF		
 			ld a,(RAM_PAGE_1)
 			ld bc,PAGE1
 			out (c),a
@@ -395,35 +395,108 @@ decode_pix		di
 			ld a,Tile0_spr_page
 			out (c),a
 			ld bc,(tileram_adr)
-			call rocknroll
+			push bc
+			ld e,(hl)
+			dec l
+			ld d,(hl)
+			dec l
+			ld a,(hl)
+			dec l
+			ld h,(hl)
+			ld l,a
+			xor a
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
 			ld (bc),a
 			inc c
-			call rocknroll
+			xor a
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
 			ld (bc),a
 			inc c
-			call rocknroll
+			xor a
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
 			ld (bc),a
 			inc c
-			call rocknroll
+			xor a
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
+			sll e
+			rla
+			sll d
+			rla
+			sll l
+			rla
+			sll h
+			rla
 			ld (bc),a
-			ld hl,(tileram_adr)
-			inc h
-			ld a,h
+			pop bc
+			inc b
+			ld a,b
 			and 7
 			or a
 			jr nz,1f
-			ld a,h
+			ld a,b
 			sub 8
-			ld h,a
-			inc l
-			inc l
-			inc l
-			inc l
+			ld b,a
+			inc c
+			inc c
+			inc c
+			inc c
 			jr nz,1f
-			ld a,h
+			ld a,b
 			add 8
-			ld h,a
-1			ld (tileram_adr),hl
+			ld b,a
+1			ld (tileram_adr),bc
 			ld bc,PAGE1
 			ld a,(RAM_PAGE_1)
 			out (c),a
@@ -432,35 +505,26 @@ decode_pix		di
 			ei
 			ret
 
-
+/*
 rocknroll		xor a
-			ld e,l
-			sll (hl)
+			sll e
 			rla
-			dec l
-			sll (hl)
+			sll d
 			rla
-			dec l
-			sll (hl)
+			sll l
 			rla
-			dec l
-			sll (hl)
+			sll h
 			rla
-			ld l,e
-			sll (hl)
+			sll e
 			rla
-			dec l
-			sll (hl)
+			sll d
 			rla
-			dec l
-			sll (hl)
+			sll l
 			rla
-			dec l
-			sll (hl)
+			sll h
 			rla
-			ld l,e
 			ret
-
+*/
 
 start:			di
 			ld sp,#feff
@@ -655,7 +719,7 @@ clr_screen
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	include "includes.asm"
-	include "../tsconfig.asm"
+	include "tsconfig.asm"
 sms_pal		incbin "_spg/sms.pal"
 
 
