@@ -100,11 +100,11 @@ view_tilemem
 			ld bc,PAGE1
 			out (c),a
 			pop bc	
-/*
+	IF viewer=2
 ; simple screen viewer
 			ld hl,0
 			ld de,#4000
-			ld bc,32*256+#1c
+			ld bc,32*256+#1d
 1			push bc
 2			ld a,(hl)
 			ld (de),a
@@ -120,7 +120,8 @@ view_tilemem
 			inc d
 			dec c
 			jr nz,1b
-*/
+	ENDIF
+
 	IF viewer=0
 
 ; simple tile viewer
@@ -145,7 +146,7 @@ view_tilemem
 	IF viewer=1
 
 			ld a,b
-			and	%11111000		;round the scroll to the nearest 8 pixels
+			and %11111000		;round the scroll to the nearest 8 pixels
 			;multiply the vertical scroll offset by 8. since the scroll offset is already
 			 ;a multiple of 8, this will give you 64 bytes per screen row (32 16-bit tiles)
 			ld h,0
@@ -158,18 +159,19 @@ view_tilemem
 			ld (start_tile_x+1),a
 
 			ld a,c
-			and	%11111000		;and then round to the nearest 8 pixels
-;			add 8
+			and %11111000		;and then round to the nearest 8 pixels
 			srl a			;divide by 2 ...
 			srl a			;divide by 4
 			and #3f
 			ld l,a
+
 			exa 
 			ld a,l
 			exa
 			ld de,#4000		; TileMap adress
 			ld c,24			; screen height
-vt1			ld b,31			; screen width
+vt1			ld b,32			; screen width
+
 vt2			exa
 			add 2
 			and #3f
@@ -180,17 +182,15 @@ start_tile_x		add 0
 			ld l,a
 			exa
 			ld a,(hl)
-			inc l
 			ld (de),a
-			inc l
 			inc e
 			inc e
 			djnz vt2
 			ld e,b
 			inc d
-			exa
-			add 2
-			exa
+;			exa
+;			add 2
+;			exa
 			ld a,(start_tile_x+1)
 			add #40
 			ld (start_tile_x+1),a
@@ -308,17 +308,11 @@ update_tilemem		push hl
 update_2byte_tilemem	push hl
 			push bc
 			push af
-;			push af
 			ld bc,PAGE0
 			ld a,tilemem
 			out (c),a
-;			pop af
-;			xor a
 tilemem2_adr		ld hl,(tilemap_adr)
-;			ld (hl),a
 			inc l
-;			ld a, (RAM_TEMP1)		;get the upper byte to use for the tiles
-;			ld (hl),a
 			inc hl		
 			ld (tilemap_adr),hl
 			xor a
@@ -333,9 +327,6 @@ RAM_SPRITETABLE		$D000	;X/Y/I data for the 64 sprites
 */
 
 send_sprites
-;			ld a,b
-;			or a
-;			ret z
 ;		ld a,1
 ;		out (#fe),a	
 			push ix
@@ -348,16 +339,28 @@ send_sprites
 			ld b,84/2
 
 2			ld a,(hl)
-			sub 8
-			ld (ix+2),a
-			ld (ix+2+6),a
 			inc l
+			sub 7
+			cp 256-7
+			jr nc,1f
+/*
+			add #28
+			jr nc,1f
+			set 0,(ix+3)
+			set 0,(ix+3+6)
+			jr 3f
+
+1			res 0,(ix+3)
+			res 0,(ix+3+6)
+*/
+3			ld (ix+2),a
+			ld (ix+2+6),a
+
 			ld a,(hl)
 			cp 224
 			jr z,1f
 			set 5,(ix+1) ; SP_ACT
 			set 5,(ix+1+6) ; SP_ACT
-			add #30
 			ld (ix+0),a
 			add 8
 			ld (ix+6),a
@@ -392,6 +395,7 @@ decode_pix		di
 			push de
 			push bc
 			ld bc,PAGE1
+			push bc
 			ld a,Tile0_spr_page
 			out (c),a
 			ld bc,(tileram_adr)
@@ -405,78 +409,78 @@ decode_pix		di
 			ld h,(hl)
 			ld l,a
 			xor a
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
 			rla
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
-			rla
-			ld (bc),a
-			inc c
-			xor a
-			sll e
-			rla
-			sll d
-			rla
-			sll l
-			rla
-			sll h
-			rla
-			sll e
-			rla
-			sll d
-			rla
-			sll l
-			rla
-			sll h
+			rl h
 			rla
 			ld (bc),a
 			inc c
 			xor a
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
 			rla
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
 			rla
 			ld (bc),a
 			inc c
 			xor a
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
 			rla
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
+			rla
+			ld (bc),a
+			inc c
+			xor a
+			rl e
+			rla
+			rl d
+			rla
+			rl l
+			rla
+			rl h
+			rla
+			rl e
+			rla
+			rl d
+			rla
+			rl l
+			rla
+			rl h
 			rla
 			ld (bc),a
 			pop bc
@@ -497,7 +501,7 @@ decode_pix		di
 			add 8
 			ld b,a
 1			ld (tileram_adr),bc
-			ld bc,PAGE1
+			pop bc
 			ld a,(RAM_PAGE_1)
 			out (c),a
 			pop bc
@@ -507,21 +511,21 @@ decode_pix		di
 
 /*
 rocknroll		xor a
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
 			rla
-			sll e
+			rl e
 			rla
-			sll d
+			rl d
 			rla
-			sll l
+			rl l
 			rla
-			sll h
+			rl h
 			rla
 			ret
 */
@@ -531,11 +535,12 @@ start:			di
 			ld bc,PAGE2
 			ld a,Vid_page
 			out (c),a
-			ld hl,0		;1111 - white
+			ld hl,$0		;1111 - white
 			ld (#8000),hl
 			ld hl,init_ts
 			call set_ports
 			call spr_off
+			ld hl,1
 			call cls_tileset
 			ld bc, PAGE0
 			ld a,0
@@ -552,7 +557,6 @@ cls_tileset
 		ld bc,PAGE1
 		ld a,Tile_page
 		out (c),a
-		ld hl,0
 		ld (#4000),hl
 		ld hl,tileset_clr
 		call set_ports
@@ -639,13 +643,15 @@ init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high TMPAGE, Tile_page
 			db high T0GPAGE,Tile0_spr_page
 //			db high T1GPAGE,Tile0_spr_page
-			db high T0XOFFSL,0
+/*
+			db high T0XOFFSL,80
+			db high T0XOFFSH,1
 			db high T1XOFFSL,0
 			db high T0YOFFSL,0
 			db high T1YOFFSL,0
 			db high T0YOFFSH,1
 			db high T1YOFFSH,1
-
+*/
 
 pal_dma			db #1a,low pal_db
 		        db #1b,high pal_db

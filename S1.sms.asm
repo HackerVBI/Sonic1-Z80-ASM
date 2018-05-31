@@ -139,11 +139,11 @@
    - the feature is incomplete and breaks the game
    - there's not enough VRAM for the Sonic sprite
 */
-;.DEF S1_CONFIG_BIGGERSCREEN
+.DEF S1_CONFIG_BIGGERSCREEN
 
 ;keep the screen height handy, it'll be used in a lot of places
 .IFDEF S1_CONFIG_BIGGERSCREEN
-.DEF SMS_SCREENHEIGHT_PX	224
+.DEF SMS_SCREENHEIGHT_PX	208;224
 .ELSE
 .DEF SMS_SCREENHEIGHT_PX	192
 .ENDIF
@@ -495,16 +495,18 @@ set_page12_de	ex de,hl
 		ex de,hl
 		ret
 
-/*
+
 tsu_on
-		ld a,VID_320X240+VID_NOGFX
-tsu_out		ld bc,VCONFIG
+		ld a,VID_256X192+VID_NOGFX+VID_16C
+tsu_out		push bc
+		ld bc,VCONFIG
 		out (c),a
+		pop bc
 		ret
 
-tsu_off		ld a,$10
+tsu_off		ld a,VID_256X192+$10+$20+VID_16C
 		jr tsu_out
-*/
+
 /*
 ;____________________________________________________________________________[$0066]___
 ;pressing the pause button causes an interrupt and jumps to $0066
@@ -543,7 +545,7 @@ interruptHandler:
 ;	res	0,(iy+vars.scrollRingFlags)	
 
 ;	in	a, (SMS_VDP_CONTROL)	;get the status of the VDP
-	
+
 	bit	7, (iy+vars.flags6)	;check the underwater flag
 	jr	z, +			;if off, skip ahead
 	
@@ -591,14 +593,6 @@ interruptHandler:
 	
 +	push	ix
 	push	iy
-
-	ld a, (RAM_VDPSCROLL_HORIZONTAL)
-;	neg				;I don't understand the reason for this
-	ld c,a
-	;vertical scroll
-	ld a, (RAM_VDPSCROLL_VERTICAL)
-	ld b,a
-	call view_tilemem
 
 ;	ld	b, (iy+vars.spriteUpdateCount)
 	call send_sprites
@@ -683,10 +677,8 @@ _LABEL_F7_25:
 	ld	a, (RAM_VDPSCROLL_HORIZONTAL)
 	and 7
 ;	neg				;I don't understand the reason for this
-
+;	add a,$d0
 	ld bc,T0XOFFSL
-	out (c),a
-	ld bc,T1XOFFSL
 	out (c),a
 
 ;	out	(SMS_VDP_CONTROL), a
@@ -696,10 +688,8 @@ _LABEL_F7_25:
 	;vertical scroll
 	ld	a, (RAM_VDPSCROLL_VERTICAL)
 	and 7
-	add a,$d0
+;	add a,$d0
 	ld bc,T0YOFFSL
-	out (c),a
-	ld bc,T1YOFFSL
 	out (c),a
 
 ;	out	(SMS_VDP_CONTROL), a
@@ -708,7 +698,15 @@ _LABEL_F7_25:
 	
 	bit	5, (iy+vars.flags0)			
 	call	nz, fillScrollTiles
-	
+
+	ld a, (RAM_VDPSCROLL_HORIZONTAL)
+;	neg				;I don't understand the reason for this
+	ld c,a
+	;vertical scroll
+	ld a, (RAM_VDPSCROLL_VERTICAL)
+	ld b,a
+	call view_tilemem
+
 	bit	5, (iy+vars.flags0)			
 	call	nz, loadPaletteFromInterrupt
 	
@@ -729,7 +727,7 @@ _LABEL_F7_25:
 	ld	(RAM_PAGE_2), a
 	
 	;does the Sonic sprite need updating?
-	 ;(the particular frame of animation is copied to the VRAM)
+	;(the particular frame of animation is copied to the VRAM)
 	bit	7, (iy+vars.timeLightningFlags)
 	call	nz, updateSonicSpriteFrame
 	
@@ -856,9 +854,7 @@ loadPaletteFromInterrupt_water:
 	;load the sprite palette specifically for Labyrinth
 	ld	hl, S1_Palette_Labyrinth_Sprites
 	ld	a, %00000010
-	call	loadPalette
-	
-	ret
+	jp	loadPalette
 
 ;----------------------------------------------------------------------------[$01F2]---
 	
@@ -900,10 +896,10 @@ doRasterSplit:
 	ld	(RAM_RASTERSPLIT_STEP), a
 	
 	;set the VDP to point at the palette
-	ld	a, $00
-	out	(SMS_VDP_CONTROL), a
-	ld	a, %11000000
-	out	(SMS_VDP_CONTROL), a
+;	ld	a, $00
+;	out	(SMS_VDP_CONTROL), a
+;	ld	a, %11000000
+;	out	(SMS_VDP_CONTROL), a
 	
 	ld	b, 16
 	ld	hl, S1_UnderwaterPalette
@@ -915,7 +911,10 @@ doRasterSplit:
 	ld	hl, S1_UnderwaterPalette_Boss
 
 	;copy the palette into the VDP
-__	ld   a, (hl)
+	call send_palette
+
+__
+/*	ld   a, (hl)
 	out	(SMS_VDP_DATA), a
 	inc	hl
 	nop
@@ -923,12 +922,12 @@ __	ld   a, (hl)
 	out	(SMS_VDP_DATA), a
 	inc	hl
 	djnz	_b			;jump backward to `__`
-	
-	ld	a, (RAM_VDPREGISTER_0)
-	and	%11101111		;remove bit 4 -- disable line interrupts
-	out	(SMS_VDP_CONTROL), a
-	ld	a, SMS_VDP_REGISTER_0
-	out	(SMS_VDP_CONTROL), a
+*/
+;	ld	a, (RAM_VDPREGISTER_0)
+;	and	%11101111		;remove bit 4 -- disable line interrupts
+;	out	(SMS_VDP_CONTROL), a
+;	ld	a, SMS_VDP_REGISTER_0
+;	out	(SMS_VDP_CONTROL), a
 
 +++	pop	bc
 	pop	de
@@ -962,32 +961,6 @@ init:
 ;	ld	sp, hl			;place the stack at the top of RAM ($DFEF)
 					 ;(note that LDIR increased the HL register)
 
-/*	
-	;initialize the VDP:
-	ld	hl, initVDPRegisterValues
-	ld	de, RAM_VDPREGISTER_0
-	ld	b, 11
-	ld	c, $8B
-				
--	ld	a, (hl)			;read the lo-byte for the VDP
-	ld	(de), a			;copy to RAM
-	inc	hl			;move to the next byte
-	inc	de				
-	out	(SMS_VDP_CONTROL), a	;send the VDP lo-byte
-	ld	a, c			;Load A with #$8B
-	sub	b			;subtract B from A (B is decreasing),
-					 ;so A will count from #$80 to #8A
-	out	(SMS_VDP_CONTROL), a	;send the VDP hi-byte
-	djnz	-			;loop until B has reached 0
-*/	
-/*
-	;move all sprites off the bottom of the screen!
-	 ;(set 64 bytes of VRAM from $3F00 to 224)
-	ld	hl, $3F00
-	ld	bc, 64
-	ld	a, 224
-	call	clearVRAM
-*/
 	call	muteSound
 	
 	;initialise variables?
@@ -1138,7 +1111,8 @@ updateVDPSprites:
 	
 	;if the number of sprites to update is equal or greater than the existing
 	 ;number of active sprites, skip ahead to setting the X-positions and indexes
-+	ld	a, (RAM_ACTIVESPRITECOUNT)
++	
+	ld	a, (RAM_ACTIVESPRITECOUNT)
 	ld	b, a
 	ld	a, (iy+vars.spriteUpdateCount)
 	ld	c, a
@@ -1150,11 +1124,13 @@ updateVDPSprites:
 	 ;remaining and make them inactive
 	ld	a, b
 	sub	c
+	and $7f
+	inc a
 	ld	b, a
 
 	;move remaining sprites off screen
--	ld	a, 224
-	ld (hl),a
+	ld	a, 224
+-	ld (hl),a
 	add hl,de
 ;	out	(SMS_VDP_DATA), a
 	djnz	-
@@ -1193,107 +1169,6 @@ updateVDPSprites:
 	ld	(iy+vars.spriteUpdateCount), b
 	ret
 
-;___ UNUSED! (20 bytes) _____________________________________________________[$0397]___	
-/*
-;fill VRAM from memory?
-_0397:
-;BC : number of bytes to copy
-;DE : VDP address
-;HL : memory location to copy from
-	di	
-	ld	a,e
-	out	(SMS_VDP_CONTROL),a
-	ld	a,d
-	or	%01000000
-	out	(SMS_VDP_CONTROL),a
-	ei	
-
--	ld	a,(hl)
-	out	(SMS_VDP_DATA),a
-	inc	hl
-	
-	dec	bc
-	ld	a,b
-	or	c
-	jp	nz,-
-	
-	ret
-*/	
-;___ UNUSED! (88 bytes) _____________________________________________________[$03AC]___
-/*
-_03ac:
-;A  : bank number for page 1, A+1 will be used as the bank number for page 2
-;DE : VDP address
-;HL : 
-	di	
-	push	af
-
-	;set the VDP address using DE
-	ld	a,e
-	out	(SMS_VDP_CONTROL),a
-	ld	a,d
-	or	%01000000
-	out	(SMS_VDP_CONTROL),a
-	
-	pop	af
-	ld	de,(RAM_PAGE_1)		;remember the current page 1 & 2 banks
-	push	de
-	
-	call set_page1
-	ld	(RAM_PAGE_1),a
-	inc	a
-	call set_page2
-	ld	(RAM_PAGE_2),a
-	ei	
-
----	ld	a,(hl)
-	cpl	
-	ld	e,a
-
---	ld	a,(hl)
-	cp	e
-	jr	z,+
-	out	(SMS_VDP_DATA),a
-	ld	e,a
-	inc	hl
-	dec	bc
-	ld	a,b
-	or	c
-	jp	nz,--
-	jr	++
-
-+	ld	d,a
-	inc	hl
-	dec	bc
-	ld	a,b
-	or	c
-	jr	z,++
-	ld	a,d
-	ld	e,(hl)
--:
-	out	(SMS_VDP_DATA),a
-	dec	e
-	nop	
-	nop	
-	jp	nz,-
-	inc	hl
-	dec	bc
-	ld	a,b
-	or	c
-	jp	nz,---
-
-++	di	
-	;restore bank numbers
-	pop	de
-	ld	(RAM_PAGE_1),de
-	ld	a,e
-	call set_page1
-	ld	a,d
-	call set_page2
-	ei	
-	ret	
-*/
-;____________________________________________________________________________[$0405]___
 
 decompressArt:
 ;HL : relative address from the beginning of the intended bank (A) to the data
@@ -1660,12 +1535,8 @@ Data Unused   Priority Palette Vertical  Horizontal Tile number
 	;--- uncompressed byte --------------------------------------------------------
 	ld	e, a			;update the "current byte" being compared
 	call update_tilemem
-;	call set_tile
-;	out	(SMS_VDP_DATA), a	;send the tile to the VDP
-
 	ld	a, (RAM_TEMP1)		;get the upper byte to use for the tiles
 	call update_tilemem		;(foreground / background / flip)
-;	out	(SMS_VDP_DATA), a
 	
 	inc	hl			;move to the next byte
 	dec	bc			;decrease the remaining bytes to read
@@ -1690,13 +1561,11 @@ Data Unused   Priority Palette Vertical  Horizontal Tile number
 	
 	;repeat the byte
 -	
-;	call set_tile
+
 	call update_tilemem
-; 	out	(SMS_VDP_DATA), a
 	push	af
 	ld	a, (RAM_TEMP1)
 	call update_tilemem
-;	out	(SMS_VDP_DATA), a
 	pop	af
 	dec	e
 	jp	nz, -
@@ -1716,35 +1585,19 @@ Data Unused   Priority Palette Vertical  Horizontal Tile number
 	
 _decompressScreen_skip:
 	ld	e, a
-;	in	a, (SMS_VDP_DATA)
 	xor a
 	call update_2byte_tilemem
-;	call set_tile
-;	call add2tile
 
 	inc	hl
 	dec	bc
-;	in	a, (SMS_VDP_DATA)
 	ld	a, b
 	or	c
 	jp	nz, --
 	
 	ei
 	ret
-/*
-add2tile	push hl
-		ld hl,(tilemap_adr)
-		inc l
-		inc l
-		ld a,l
-		and $3f
-		jr nz,add2tile1
-		ld l,a
-		inc h
-add2tile1	ld (tilemap_adr),hl
-		pop hl
-		ret
-*/
+
+
 _decompressScreen_multiSkip:
 ;	in	a, (SMS_VDP_DATA)
 ;	push	af
@@ -1815,28 +1668,6 @@ _sendPalette:
 	jp  send_palette
 
 
-;____________________________________________________________________________[$0595]___
-;called only by `init`
-/*
-clearVRAM:
-;HL : VRAM address
-;BC : length
-;A  : value
-	ld	e, a
-	ld	a, l
-	out	(SMS_VDP_CONTROL), a
-	ld	a, h
-	or	%01000000
-	out	(SMS_VDP_CONTROL), a
-	
--	ld	a, e
-	out	(SMS_VDP_DATA), a
-	dec	bc
-	ld	a, b
-	or	c
-	jr	nz, -
-	ret
-*/
 ;____________________________________________________________________________[$05A7]___
 
 readJoypad:
@@ -1914,19 +1745,9 @@ print:
 -	ld	a, (de)
 	cp	$FF
 	ret	z
-;	di
 	call update_tilemem
 	ld	a, (RAM_TEMP1)
 	call update_tilemem
-;	ei
-/*	
-	out	(SMS_VDP_DATA), a
-	push	af			;kill time?
-	pop	af
-	ld	a, (RAM_TEMP1)		;what to use as the tile upper bits
-					 ;(front/back, flip &c.)
-	out	(SMS_VDP_DATA), a
-*/
 	inc	de
 	djnz	-
 	ret
@@ -2152,7 +1973,7 @@ fillOverscrollCache:
 	bit	5,(iy+vars.flags0)
 	ret	z
 	
-	di	
+;	di	
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 4 & 5 ($10000-$17FFF)
 	ld	a,:S1_BlockMappings
 	call set_page1
@@ -2160,7 +1981,7 @@ fillOverscrollCache:
 	ld	a,:S1_BlockMappings+1
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	ei	
+;	ei	
 	
 	;------------------------------------------------------------------------------
 	;get the address of the solidity data for the level's tilemap:
@@ -2380,7 +2201,7 @@ fillScrollTiles:		; #065e
 	 ;screen table
 	
 	ld	a, (RAM_VDPSCROLL_VERTICAL)
-	and	%11111000		;round the scroll to the nearest 8 pixels
+	and	$f8		;round the scroll to the nearest 8 pixels
 	
 	;multiply the vertical scroll offset by 8. since the scroll offset is already
 	 ;a multiple of 8, this will give you 64 bytes per screen row (32 16-bit tiles)
@@ -2526,16 +2347,13 @@ fillScrollTiles:		; #065e
 	ld	a, e
 	and	%11000000
 	ld	(RAM_TEMP1), a
+	ld (tilemap_adr),de
 	ld	a, e
 ;	out	(SMS_VDP_CONTROL), a
 	and	$3F
-	ld (tilemap_adr),de
 	ld	e, a
-;	ld	a, d
-;	ld (tilemem+1),a
 ;	out	(SMS_VDP_CONTROL), a
 	ld	b, $3E
-;	ld	c, $BE
 
 -	bit	6, e
 	jr	nz, +
@@ -2700,6 +2518,7 @@ getFloorLayoutRAMPosition:
 fillScreenWithFloorLayout:
 	;page in banks 4 & 5 (containing the block mappings)
 	di				;disable interrupts
+	ld hl,0
 	call cls_tileset
 	ld	a,:S1_BlockMappings
 	call set_page1
@@ -3348,9 +3167,13 @@ _LABEL_C52_106:
 	ld	($D216), a
 	dec	a
 	jr	nz, +
-	ld	a, (RAM_VDPREGISTER_1)
-	and	%10111111
-	ld	(RAM_VDPREGISTER_1), a
+;	ld	a, (RAM_VDPREGISTER_1)
+;	and	%10111111
+;	ld	(RAM_VDPREGISTER_1), a
+	call tsu_off
+	ld hl,0
+	call cls_tileset
+
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -3398,10 +3221,10 @@ _LABEL_C52_106:
 	jr	++
 	
 +	;turn the screen off
-	ld	a, (RAM_VDPREGISTER_1)
-	and	%10111111		;remove bit 6 of VDP register 1
-	ld	(RAM_VDPREGISTER_1), a
-	
+;	ld	a, (RAM_VDPREGISTER_1)
+;	and	%10111111		;remove bit 6 of VDP register 1
+;	ld	(RAM_VDPREGISTER_1), a
+	call tsu_off	
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -3450,7 +3273,7 @@ _LABEL_C52_106:
 	;play the map screen music
 ++	ld	a,index_music_mapScreen
 	rst	$18			;`playMusic`
-	
+	call tsu_on
 +++	call	_LABEL_E86_110
 	ld	a, (RAM_CURRENT_LEVEL)
 	add	a, a
@@ -3990,7 +3813,7 @@ titleScreen:
 ;	ld	a, (RAM_VDPREGISTER_1)
 ;	and	%10111111		;remove bit 6 of $D219
 ;	ld	(RAM_VDPREGISTER_1), a
-	
+	call tsu_off
 	;wait for interrupt to complete?
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
@@ -4031,7 +3854,7 @@ titleScreen:
 	ld	hl, S1_TitleScreen_Palette
 	ld	a, %00000011		;flags to load tile and sprite palettes
 	call	loadPaletteOnInterrupt
-	
+	call tsu_on
 	set	1, (iy+vars.flags0)
 	
 	;play title screen music
@@ -4044,7 +3867,7 @@ titleScreen:
 	ld	a, $01
 	ld	(RAM_TEMP2), a
 	ld	hl, _1372
-	ld	(RAM_TEMP3), hl
+	ld	(s_c1+1), hl
 	
 	;------------------------------------------------------------------------------
 first_screen_next
@@ -4078,7 +3901,7 @@ first_screen_next
 	ld	(RAM_TEMP2), a
 	jr	nz, +
 	
-	ld	hl, (RAM_TEMP3)
+s_c1	ld	hl, 0
 	ld	e, (hl)
 	inc	hl
 	ld	d, (hl)
@@ -4092,7 +3915,7 @@ first_screen_next
 	jr	z, ++
 	
 	ld	(RAM_TEMP2), a
-	ld	(RAM_TEMP3), hl
+	ld	(s_c1+1), hl
 	ld	(RAM_TEMP4), de
 	
 	;set sprite table to use?
@@ -4168,10 +3991,10 @@ S1_TitleScreen_Palette:			;[$13E1]
 
 _1401:
 	;turn off the screen
-	ld	a,(RAM_VDPREGISTER_1)
-	and	%10111111		;remove bit 6 of VDP register 1
-	ld	(RAM_VDPREGISTER_1),a
-	
+;	ld	a,(RAM_VDPREGISTER_1)
+;	and	%10111111		;remove bit 6 of VDP register 1
+;	ld	(RAM_VDPREGISTER_1),a
+	call tsu_off
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	di	
@@ -4203,12 +4026,11 @@ _1401:
 	call	loadPaletteOnInterrupt
 	ei	
 	ld	b,$78
-	
+	call tsu_on	
 -	;turn the screen on
-	ld	a,(RAM_VDPREGISTER_1)
-	or	%01000000		;enable bit 6 on VDP register 1
-	ld	(RAM_VDPREGISTER_1),a
-	
+;	ld	a,(RAM_VDPREGISTER_1)
+;	or	%01000000		;enable bit 6 on VDP register 1
+;	ld	(RAM_VDPREGISTER_1),a
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -4297,6 +4119,8 @@ _1401:
 	
 	ret
 
+.ORG $14de
+
 _14de:
 .db $0f, $80, $81, $ff
 .db $10, $90, $91, $ff
@@ -4335,10 +4159,11 @@ _155e:
 	ld	a, (RAM_CURRENT_LEVEL)
 	cp	19
 	jp	z,_172f
-	
-	ld	a,(RAM_VDPREGISTER_1)
-	and	%10111111
-	ld	(RAM_VDPREGISTER_1),a
+
+	call tsu_off
+;	ld	a,(RAM_VDPREGISTER_1)
+;	and	%10111111
+;	ld	(RAM_VDPREGISTER_1),a
 	
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
@@ -4376,7 +4201,7 @@ _155e:
 +	xor	a
 	ld	(RAM_TEMP1),a
 	call	decompressScreen
-	
+	call tsu_on	
 	ld	hl,_1711
 	ld	c,$10
 	ld	a,($D27F)
@@ -4484,11 +4309,12 @@ _155e:
 	ldi	
 	set	1,(iy+vars.flags0)
 	ld	b,$78
-	
+	call tsu_on
+
 -	push	bc
-	ld	a,(RAM_VDPREGISTER_1)
-	or	$40
-	ld	(RAM_VDPREGISTER_1),a
+;	ld	a,(RAM_VDPREGISTER_1)
+;	or	$40
+;	ld	(RAM_VDPREGISTER_1),a
 	
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
@@ -5157,7 +4983,9 @@ main_start:
 	ld	($D23F), a
 	
 	xor	a			;set A to 0
+;	ld a,$3
 	ld	(RAM_CURRENT_LEVEL), a	;set starting level!
+;	xor a
 	ld	(RAM_FRAMECOUNT), a
 	ld	(iy+$0d), a
 	
@@ -5555,12 +5383,12 @@ dontScrollDown:
 
 ;____________________________________________________________________________[$1F06]___
 
-_1f06:
+_1f06:				; Palette effect for collision with special hero / special stage
 	dec	a
 	ld	($D2B1),a
 	ld	e,a
 	
-	di	
+;	di	
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
@@ -5580,17 +5408,24 @@ _1f06:
 	ld	b,$00
 	add	hl,bc
 	add	a,e
-	out	(SMS_VDP_CONTROL),a
-	ld	a,%11000000
-	out	(SMS_VDP_CONTROL),a
+	ld c,a
+;	out	(SMS_VDP_CONTROL),a
+;	ld	a,%11000000
+;	out	(SMS_VDP_CONTROL),a
 	ld	a,($D2B1)
 	and	$01
 	ld	a,(hl)
 	jr	z,+
 	ld	a,($D2B3)
-+	out	(SMS_VDP_DATA),a
-	ei	
-	ret
+	ld hl,tileram_adr
+	ld (hl),a
++
+	ld bc,$0100
+	jp send_palette
+
+;	out	(SMS_VDP_DATA),a
+;	ei	
+;	ret
 
 ;____________________________________________________________________________[$1F49]___
 
@@ -5819,10 +5654,10 @@ _20b8:
 loadLevel:
 ;PAGE 1 ($4000-$7FFF) is at BANK 5 ($14000-$17FFF)
 ;HL : address for the level header
-	ld	a, (RAM_VDPREGISTER_1)
-	and	%10111111		;remove bit 6
-	ld	(RAM_VDPREGISTER_1), a
-	
+;	ld	a, (RAM_VDPREGISTER_1)
+;	and	%10111111		;remove bit 6
+;	ld	(RAM_VDPREGISTER_1), a
+	call tsu_off	
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -6208,7 +6043,7 @@ loadLevel:
 	;queue the palette to be loaded via the interrupt
 	ld	a,%00000011
 	call	loadPaletteOnInterrupt
-	
+	call tsu_on
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -6574,10 +6409,10 @@ _DATA_241D_:
 
 ;end sequence screens?
 _LABEL_258B_133:
-	ld	a, (RAM_VDPREGISTER_1)
-	and	%10111111
-	ld	(RAM_VDPREGISTER_1), a
-	
+;	ld	a, (RAM_VDPREGISTER_1)
+;	and	%10111111
+;	ld	(RAM_VDPREGISTER_1), a
+	call tsu_off
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -6608,10 +6443,10 @@ _LABEL_258B_133:
 	ld	(RAM_TEMP1),a
 	call	decompressScreen
 	
-	ld	a,(RAM_VDPREGISTER_1)
-	or	%01000000
-	ld	(RAM_VDPREGISTER_1),a
-	
+;	ld	a,(RAM_VDPREGISTER_1)
+;	or	%01000000
+;	ld	(RAM_VDPREGISTER_1),a
+	call tsu_on
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -8530,7 +8365,7 @@ _3618:
 	
 	ret
 
-_3644:
+_3644:					; collision with enemy
 	xor	a
 	ld	(RAM_RINGS),a
 	call	_7c7b
@@ -8956,42 +8791,12 @@ updateRingFrame:				; $374с
 	sbc	hl,de
 	ret	z
 
-	ld	hl,$18f0 ;$1f80		;location in VRAM of the ring graphics
+	ld	hl,$58f0 ;#1f80+#4000 ,old: $1f80		;location in VRAM of the ring graphics
 	ex	de,hl
 	di	
-/*
-	ld	a,e
-	out	(SMS_VDP_CONTROL),a
-	ld	a,d
-	or	%01000000
-	out	(SMS_VDP_CONTROL),a
-*/
-	ld a, e
-	ld (tileram_adr),a
-	ld a, d
-	add a,$40
-	ld (tileram_adr+1),a
-
+	ld (tileram_adr),de
 	ld	b,$20
 -
-/*
-	ld	a,(hl)
-
-;	out	(SMS_VDP_DATA),a
-;	nop	
-	inc	hl
-	ld	a,(hl)
-;	out	(SMS_VDP_DATA),a
-;	nop	
-	inc	hl
-	ld	a,(hl)
-;	out	(SMS_VDP_DATA),a
-;	nop	
-	inc	hl
-	ld	a,(hl)
-;	out	(SMS_VDP_DATA),a
-	inc	hl
-*/
 	ld	a, (hl)
 	ld (temp0),a
 	inc	hl
@@ -9097,8 +8902,8 @@ _LABEL_38B0_51:
 	xor	l
 	ld	h, a
 	add	hl, bc
-	ld	bc, SMS_VDP_SCREENNAMETABLE
-	add	hl, bc
+;	ld	bc, SMS_VDP_SCREENNAMETABLE
+;	add	hl, bc
 	ld	de, ($D2AF)
 	ld	b, $02
 
