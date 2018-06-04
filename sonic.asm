@@ -39,7 +39,10 @@ tilemap_adr		ds 2
 			jp view_tilemem
 			org #e41f
 			jp update_2byte_tilemem
-
+			org #e422
+			jp ay_send
+			org #e425
+			jp ay_send_byte
 
 send_palette
 ; hl - pal, c-pal index
@@ -78,14 +81,94 @@ send_palette
 			pop de
 			ret
 
-/*
+ay_control	equ $FFFD
+ay_data		equ $BFFD
 
-	ld a, (RAM_VDPSCROLL_HORIZONTAL)
-	neg				;I don't understand the reason for this
-	ld c,a
-	ld a, (RAM_VDPSCROLL_VERTICAL)
-	ld b,a
-*/			
+ay_send_byte	
+			push bc
+			push de
+			push hl
+			ld d,a
+			call ay_sel
+			cp 6
+			jr z,ay_noise
+			ld a,d		; 4 bits of volume
+			cpl 
+			and #0f
+			jr ay_send_ex
+
+ay_noise		ld a,d		; most 6 bits
+			and #0f
+			jr ay_send_ex
+
+
+ay_send			push af
+ay_send1		ld a,0
+			cpl
+			ld (ay_send1+1),a
+			or a
+			jr z,1f
+			pop af
+			ld (two_sn_bytes+1),a
+			ret
+
+1			pop af
+			ld (two_sn_bytes),a
+			push bc
+			push de
+			push hl
+			ld de,(two_sn_bytes)
+			ld a,d		
+			call ay_sel
+			ld (ay_reg+1),a
+ay_tone			ld a,e		; most 6 bits
+			and #3f
+			push af
+			rra		
+			or a
+			rra		; 4 bits course pitch ay
+			ld b,high ay_data
+			out (c),a
+ay_reg			ld a,0
+			dec a		; fine pitch
+			ld b,high ay_control
+			out (c),a
+			pop af
+			ld e,0
+			or a
+			rra
+			rr e
+			rra
+			rr e
+			ld a,d
+			and #0f
+			rla
+			rla
+			or e
+ay_send_ex		ld b,high ay_data
+			out (c),a
+			pop hl
+			pop de
+			pop bc
+			ret
+
+ay_sel			and #f0		; command + least low 4 bits
+			rlca
+			rlca
+			rlca
+			rlca
+			ld l,a
+			ld h,0
+			ld bc,ay_channels
+			add hl,bc
+			ld a,(hl)
+			ld bc,ay_control
+			out (c),a
+			ret
+
+two_sn_bytes		dw 0
+			;  0,1,2,3,4,5,6,7,8,9,a,b, c,d,e, f
+ay_channels		db 0,0,0,0,0,0,0,0,1,8,5,10,3,9,6,16
 
 view_tilemem
 			di
@@ -93,9 +176,6 @@ view_tilemem
 ;			out (#fe),a
 
 			push bc
-			ld a,tilemem
-			ld bc,PAGE0
-			out (c),a
 			ld a,Tile_page
 			ld bc,PAGE1
 			out (c),a
@@ -125,8 +205,8 @@ view_tilemem
 	IF viewer=0
 
 ; simple tile viewer
-			ld de,#0000
-			ld hl,#4000
+			ld de,#1000
+			ld hl,#4a00
 			ld bc,32*256+#20
 1			push bc
 2			ld (hl),e
@@ -157,7 +237,9 @@ view_tilemem
 			add a			;x8
 			rl h
 			ld (start_tile_x+1),a
-
+			ld a,h
+			add #f8
+			ld h,a
 			ld a,c
 			and %11111000		;and then round to the nearest 8 pixels
 			srl a			;divide by 2 ...
@@ -196,9 +278,9 @@ start_tile_x		add 0
 			ld (start_tile_x+1),a
 			ld a,0
 			adc h
-			cp 7
+			cp #f8+7
 			jr c,1f
-			xor a
+			ld a,#f8
 1			ld h,a
 			dec c
 			jr nz,vt1
@@ -206,9 +288,6 @@ start_tile_x		add 0
 	ENDIF		
 			ld a,(RAM_PAGE_1)
 			ld bc,PAGE1
-			out (c),a
-			xor a
-			ld bc,PAGE0
 			out (c),a
 ;			out (#fe),a
 			ei
@@ -287,38 +366,18 @@ set_tile
 
 
 update_tilemem		push hl
-			push bc
-			push af
-			push af
-			ld bc,PAGE0
-			ld a,tilemem
-			out (c),a
-			pop af
 			ld hl,(tilemap_adr)
 			ld (hl),a
 			inc hl
 			ld (tilemap_adr),hl
-			xor a
-			out (c),a
-			pop af
-			pop bc
 			pop hl
 			ret
 
 update_2byte_tilemem	push hl
-			push bc
-			push af
-			ld bc,PAGE0
-			ld a,tilemem
-			out (c),a
-tilemem2_adr		ld hl,(tilemap_adr)
+			ld hl,(tilemap_adr)
 			inc l
 			inc hl		
 			ld (tilemap_adr),hl
-			xor a
-			out (c),a
-			pop af
-			pop bc
 			pop hl
 			ret
 
@@ -509,29 +568,8 @@ decode_pix		di
 			ei
 			ret
 
-/*
-rocknroll		xor a
-			rl e
-			rla
-			rl d
-			rla
-			rl l
-			rla
-			rl h
-			rla
-			rl e
-			rla
-			rl d
-			rla
-			rl l
-			rla
-			rl h
-			rla
-			ret
-*/
-
 start:			di
-			ld sp,#feff
+			ld sp,#ffff
 			ld bc,PAGE2
 			ld a,Vid_page
 			out (c),a
@@ -551,6 +589,25 @@ start:			di
 			inc b
 			inc a
 			out (c),a
+
+			ld a,7		; mixer
+			ld bc,ay_control
+			out (c),a
+			ld a,#f8;#e8	; all channel with noise
+			ld bc,ay_data
+			out (c),a
+
+			ld d,3
+			ld e,8		; mixer
+
+1			ld bc,ay_control
+			out (c),e
+			ld a,#0f	; all channel with noise
+			ld bc,ay_data
+			out (c),a
+			inc e
+			dec d
+			jr nz,1b
 			jp  0                ; start the Pac-Man ROM!
 
 cls_tileset
@@ -707,6 +764,7 @@ spr_db_end
 
 	align 256
 pal_db	ds 32*2
+
 
 /*			
 clr_screen

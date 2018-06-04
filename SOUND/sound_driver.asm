@@ -1,6 +1,9 @@
 ;Sonic 1 Master System Sound Driver
  ;disassembled by ValleyBell and formatted by Kroc Camen
 ;======================================================================================
+.DEF ay_send 	$e422
+.DEF ay_send_byte $e425
+
 /* Terminology:
 
 "PSG":
@@ -365,14 +368,33 @@ _stop:
 	
 	;mute all sound channels by sending the right bytes to the sound chip
 	ld      b,4
-	ld      c,SMS_SOUND_PORT
+;	ld      c,SMS_SOUND_PORT
 	ld      hl,_initPSGValues
-	otir
+_1	ld a,(hl)
+	inc hl
+	call ay_send_byte
+	djnz  _1
+;	otir
 	
 	ld      a,(playbackMode)
 	and     %11110111
 	ld      (playbackMode),a
-	
+/*
+	push ix
+	ld ix,_PSGfrequencyValues
+	ld de,$00C4
+	ld a,$0f
+sndadd	ld l,(ix+0)
+	ld h,(ix+1)
+	add hl,de
+	ld (ix+0),l
+	ld (ix+1),h
+	inc ix
+	inc ix
+	dec a
+	jr nz,sndadd
+	pop ix
+*/
 	;restore the previous state of the registers and return
 	pop     bc
 	pop     hl
@@ -410,7 +432,8 @@ _loadSFX:
 	 ;(fetch the mask used for that PSG channel)
 	ld      a,(track4vars.channelVolumePSG)
 	or      %00001111		;set volume to "%1111" (mute)
-	out     (SMS_SOUND_PORT),a	;send change to the PSG
+;	out     (SMS_SOUND_PORT),a	;send change to the PSG
+	call ay_send_byte
 	
 	;--- SFX header ---------------------------------------------------------------
 	;get which track the sound effect should override -- there are only four
@@ -687,6 +710,7 @@ _doNote:
 	rrca    
 	rrca    
 	and     $0f
+	inc a
 	ld      (ix+TRACK.octave),a
 	bit     0,(ix+TRACK.flags)
 	jr      nz,_doNoteLength
@@ -774,7 +798,8 @@ _doTrackSoundOut:
 	ld      a,c
 	ld      (noiseMode),a
 	or      %11100000		;noise channel frequency?
-	out     (SMS_SOUND_PORT),a
+;	out     (SMS_SOUND_PORT),a
+	call ay_send_byte
 	jp      _sendVolume
 	
 ;--------------------------------------------------------------------------------------
@@ -835,7 +860,8 @@ _sendFrequency:
 +	ld      a,l
 	and     %00001111
 	or      (ix+TRACK.channelFrequencyPSG)
-	out     (SMS_SOUND_PORT),a
+	call ay_send
+;	out     (SMS_SOUND_PORT),a
 	ld      a,h
 	rlca    
 	rlca    
@@ -850,7 +876,8 @@ _sendFrequency:
 	rrca    
 	and     %00001111
 	or      c
-	out     (SMS_SOUND_PORT),a
+	call ay_send
+;	out     (SMS_SOUND_PORT),a
 	
 _sendVolume:
 	ld      a,(ix+TRACK.fadeTicks+1)
@@ -869,7 +896,8 @@ _sendVolume:
 +	and     (ix+TRACK.effectiveVolume)
 	xor     %00001111
 	or      (ix+TRACK.channelVolumePSG)
-	out     (SMS_SOUND_PORT),a
+;	out     (SMS_SOUND_PORT),a
+	call ay_send_byte
 	ld      a,(playbackMode)
 	and     %00001000
 	ret     z

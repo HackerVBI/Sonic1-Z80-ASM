@@ -35,7 +35,7 @@
 /* This source code is given to the public domain:
    
    whilst "SEGA" and "Sonic" are registered trademarks of Sega Enterprises, Ltd.,
-   this is not their source code (I haven't broken into SEGA's offices ¬¨__¬¨), so not
+   this is not their source code (I haven't broken into SEGA's offices ¨__¨), so not
    their copyright. Neither does this contain any byte-for-byte data of the original
    ROM (this is all ASCII codes, even the hex data parts). the fact that this text
    file can be processed with an algorithm and produces a file that is the same as
@@ -188,11 +188,11 @@
 .DEF SMS_VDP_REGISTER_10	SMS_VDP_REGISTER_WRITE | 10
 
 ;location of the screen name table (layout of the tiles on screen) in VRAM
-.IFDEF S1_CONFIG_BIGGERSCREEN
-.DEF SMS_VDP_SCREENNAMETABLE	0 ;$3700
-.ELSE
-.DEF SMS_VDP_SCREENNAMETABLE	0; $3800
-.ENDIF
+;.IFDEF S1_CONFIG_BIGGERSCREEN
+;.DEF SMS_VDP_SCREENNAMETABLE	0 ;$3700
+;.ELSE
+.DEF SMS_VDP_SCREENNAMETABLE	$f800; $3800
+;.ENDIF
 
 ;--------------------------------------------------------------------------------------
 .DEF SMS_SOUND_PORT		$7F	;write-only port to send data to sound chip
@@ -1723,8 +1723,8 @@ print:
 	ex	de, hl
 	sla	c			;multiply column number by 2 (16-bit values)
 	add	hl, bc
-;	ld	bc, SMS_VDP_SCREENNAMETABLE
-;	add	hl, bc
+	ld	bc, SMS_VDP_SCREENNAMETABLE
+	add	hl, bc
 	
 	;set the VDP to point to the screen address calculated
 ;	ld b,$38	;SMS_VDP_SCREENNAMETABLE/256
@@ -2231,12 +2231,12 @@ fillScrollTiles:		; #065e
 	ld	c, a
 	ld l,c
 	ld h,b
-;	ld	hl, SMS_VDP_SCREENNAMETABLE
-;	add	hl, bc			;offset to the top of the column needed
+	ld	hl, SMS_VDP_SCREENNAMETABLE
+	add	hl, bc			;offset to the top of the column needed
 ;	set	6, h			;add bit 6 to label as a VDP VRAM address
 	
 	ld	bc, 64			;there are 32 tiles (16-bit) per screen-width
-	ld	d, 7 ;$3F|%01000000	;upper limit of the screen table
+	ld	d, $f8+7 ;7 ;$3F|%01000000	;upper limit of the screen table
 					 ;(bit 6 is set as it is a VDP VRAM address)
 	ld	e, 7
 	
@@ -2327,12 +2327,12 @@ fillScrollTiles:		; #065e
 	srl	a
 	add	a, c
 	ld	c, a
-;	ld	hl, SMS_VDP_SCREENNAMETABLE
-;	add	hl, bc
+	ld	hl, SMS_VDP_SCREENNAMETABLE
+	add	hl, bc
 ;	set	6, h
-	ld e,c
-	ld d,b
-;	ex	de, hl
+;	ld e,c
+;	ld d,b
+	ex	de, hl
 	ld	hl, RAM_OVERSCROLLCACHE_VERT
 	ld	a, (RAM_VDPSCROLL_HORIZONTAL)
 	and	%00011111
@@ -2374,21 +2374,26 @@ fillScrollTiles:		; #065e
 	ret
 
 +	ld	a, (RAM_TEMP1)
-	ld (tilemap_adr),a
+	ld e,a
+;	ld (tilemap_adr),a
 ;	out	(SMS_VDP_CONTROL), a
-	ld	a, d
-	ld (tilemap_adr+1),a
+;	ld	a, d
+;	ld (tilemap_adr+1),a
 ;	out	(SMS_VDP_CONTROL), a
 	
 -	
 ;	outi
 ;	outi
 	ld a,(hl)
-	call update_tilemem
+	ld (de),a
+	inc e
+;	call update_tilemem
 	inc hl
 	dec b
 	ld a,(hl)
-	call update_tilemem
+	ld (de),a
+	inc e
+;	call update_tilemem
 	inc hl
 	dec b
 	jp	nz, -
@@ -3083,33 +3088,40 @@ loadPowerUpIcon:		; #0b08 (0c1d)
  ;    ($4000-$7FFF) is loaded with bank 5 ($14000-$17FFF)
 
 	di	
+	ld a,(RAM_PAGE_1)
+	push af
 	ld	a,5			;temporarily switch to bank 5 for the function
+	ld (RAM_PAGE_1),a
 	call set_page1
 	
 	ld	a,(RAM_FRAMECOUNT)
-	and	%00001111
+	and	$0f
 	add	a,a			;x2
+	ld c,a
 	add	a,a			;x4
 	add	a,a			;x8
 	ld	e,a			;put it into DE
 	ld	d,$00
 	add	hl,de			;offset into HL parameter
-	
 	ex	de,hl
-	ld	bc,$2880	;$2B80
-	
+	ld b,0
+	ld hl,pwi_db
+;	ld	bc,$2880	;$2B80
 	add	hl,bc
-	ld	a,l
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
 ;	out	(SMS_VDP_CONTROL),a
 ;	ld	a,h
 ;	or	%01000000
 ;	out	(SMS_VDP_CONTROL),a
-	ld (tileram_adr),a
-	ld	a, d
-	add a,$40
-	ld (tileram_adr+1),a	
-
+	ld l,a
 	ld	b,2
+	ld (tileram_adr),hl
+;	ld	a, d
+;	add a,$40
+;	ld (tileram_adr+1),a	
+
 -	ld	a,(de)
 	ld (temp0),a
 	inc	de
@@ -3126,6 +3138,7 @@ loadPowerUpIcon:		; #0b08 (0c1d)
 	ld hl,temp3
 	call decode_pix
 	pop hl
+	inc h
 
 ;	out	(SMS_VDP_DATA),a
 ;	nop	
@@ -3137,11 +3150,19 @@ loadPowerUpIcon:		; #0b08 (0c1d)
 	djnz	-
 	
 	;return to the previous bank number
-	ld	a,(RAM_PAGE_1)
+;	ld	a,(RAM_PAGE_1)
+	pop af
+	ld (RAM_PAGE_1),a
 	call set_page1
 	ei	
 	ret
 
+.DEF	pwi	$6870
+
+pwi_db	.dw pwi,pwi+$200,pwi+$400,pwi+$600
+	.dw pwi+4,pwi+$200+4,pwi+$400+4,pwi+$600+4
+	.dw pwi+8,pwi+$200+8,pwi+$400+8,pwi+$600+8
+	.dw pwi+$c,pwi+$200+$c,pwi+$400+$c,pwi+$600+$c
 ;____________________________________________________________________________[$0C52]___
 ;map screen
 
@@ -4984,7 +5005,7 @@ main_start:
 	
 	xor	a			;set A to 0
 ;	ld a,$3
-	ld	(RAM_CURRENT_LEVEL), a	;set starting level!
+	ld	(RAM_CURRENT_LEVEL), a	;set starting level!	$D23E
 ;	xor a
 	ld	(RAM_FRAMECOUNT), a
 	ld	(iy+$0d), a
@@ -6408,7 +6429,7 @@ _DATA_241D_:
 ;____________________________________________________________________________[$258B]___
 
 ;end sequence screens?
-_LABEL_258B_133:
+_LABEL_258B_133:			; $2581
 ;	ld	a, (RAM_VDPREGISTER_1)
 ;	and	%10111111
 ;	ld	(RAM_VDPREGISTER_1), a
@@ -6782,38 +6803,41 @@ __	ld      a,(hl)
 ---	push	bc
 	ld	bc,$000c
 	call	_2718
-	ld	de,S1_SolidityData_0+$3aa4-$3a75
-	ld	hl,S1_SolidityData_0+$3ae4-$3a75
+	ld	de,$Faa4
+	ld	hl,$Fae4
 	ld	b,$09
 	
 --	push	bc
 	push	hl
 	push	de
 	ld	b,$14
-	
--	di	
-	ld	a,l
-	out	(SMS_VDP_CONTROL),a
-	ld	a,h
-	out	(SMS_VDP_CONTROL),a
-	push	ix
-	pop	ix
-	in	a,(SMS_VDP_DATA)
-	ld	c,a
-	push	ix
-	pop	ix
-	ld	a,e
-	out	(SMS_VDP_CONTROL),a
-	ld	a,d
-	or	$40
-	out	(SMS_VDP_CONTROL),a
-	push	ix
-	pop	ix
-	ld	a,c
-	out	(SMS_VDP_DATA),a
-	push	ix
-	pop	ix
-	ei	
+
+-
+;	di	
+;	ld	a,l
+;	out	(SMS_VDP_CONTROL),a
+;	ld	a,h
+;	out	(SMS_VDP_CONTROL),a
+;	push	ix
+;	pop	ix
+;	in	a,(SMS_VDP_DATA)
+;	ld	c,a
+	ld a,(hl)
+;	push	ix
+;	pop	ix
+;	ld	a,e
+;	out	(SMS_VDP_CONTROL),a
+;	ld	a,d
+;	or	$40
+;	out	(SMS_VDP_CONTROL),a
+;	push	ix
+;	pop	ix
+;	ld	a,c
+	ld (de),a
+;	out	(SMS_VDP_DATA),a
+;	push	ix
+;	pop	ix
+;	ei	
 	inc	hl
 	inc	de
 	djnz	-
@@ -6926,7 +6950,7 @@ S1_Credits_Text:			;[$2905]
 .db $FE, $14, $11, $2F, $3E, $AE, $5E, $4E, $7F			;DESIGN
 .db $FD, $3C, $00
 .db $FC, $04
-.db $FE, $14, $10, $AB, $AE, $3E, $4E, $1E			;¬©SEGA
+.db $FE, $14, $10, $AB, $AE, $3E, $4E, $1E			;©SEGA
 .db $FD, $B4, $00
 .db $FC, $09
 .db $FE, $14, $0E, $AE, $AF, $1E, $3F, $3F			;STAFF
@@ -8783,7 +8807,7 @@ ss1	ld a,(hl)
 
 ;____________________________________________________________________________[$3879]___
 
-updateRingFrame:				; $374—Å
+updateRingFrame:				; $374Ò
 	ld	de,(RAM_RING_CURRENT_FRAME)
 	ld	hl,(RAM_RING_PREVIOUS_FRAME)
 	
@@ -8902,8 +8926,8 @@ _LABEL_38B0_51:
 	xor	l
 	ld	h, a
 	add	hl, bc
-;	ld	bc, SMS_VDP_SCREENNAMETABLE
-;	add	hl, bc
+	ld	bc, SMS_VDP_SCREENNAMETABLE
+	add	hl, bc
 	ld	de, ($D2AF)
 	ld	b, $02
 
@@ -22107,17 +22131,18 @@ _bff1:
 
 .BANK 3 SLOT 1
 .ORGA $4000
-
+.UNBACKGROUND $4000 $ffff
 .include "SOUND\sound_driver.asm"
 .include "SOUND\music.asm"
 
 ;we might be able to set a background repeating text like this so that we don't have
  ;to specify precise gap-filling like this
+/*
 .ORGA $7FB1
 .db "Master System & Game Gear Version.  "
 .db "'1991 (C)Ancient. (BANK0-4)", $A2
 .db "SONIC THE HEDGE"
-
+*/
 ;======================================================================================
 ;block mappings
 
