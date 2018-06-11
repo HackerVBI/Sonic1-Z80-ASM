@@ -711,6 +711,7 @@ _doNote:
 	rrca    
 	and     $0f
 	inc a
+	inc a
 	ld      (ix+TRACK.octave),a
 	bit     0,(ix+TRACK.flags)
 	jr      nz,_doNoteLength

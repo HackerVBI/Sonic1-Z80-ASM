@@ -89,17 +89,31 @@ ay_send_byte
 			push de
 			push hl
 			ld d,a
-			call ay_sel
-			cp 6
+			and #f0
+			cp #f0
 			jr z,ay_noise
+			ld a,d
+			call ay_sel
 			ld a,d		; 4 bits of volume
 			cpl 
 			and #0f
 			jr ay_send_ex
 
-ay_noise		ld a,d		; most 6 bits
+ay_noise		call _SC2
+			ld a,9
+			ld b,high ay_control
+			out (c),a
+			ld a,d		; most 6 bits
+			cpl
 			and #0f
-			jr ay_send_ex
+			or a
+			jr z,1f		
+			add 3
+;			and #0f
+1			ld b,high ay_data
+			out (c),a
+			call _SC1
+			jr ay_send_ex2
 
 
 ay_send			push af
@@ -118,7 +132,7 @@ ay_send1		ld a,0
 			push de
 			push hl
 			ld de,(two_sn_bytes)
-			ld a,d		
+			ld a,d
 			call ay_sel
 			ld (ay_reg+1),a
 ay_tone			ld a,e		; most 6 bits
@@ -147,7 +161,7 @@ ay_reg			ld a,0
 			or e
 ay_send_ex		ld b,high ay_data
 			out (c),a
-			pop hl
+ay_send_ex2		pop hl
 			pop de
 			pop bc
 			ret
@@ -169,6 +183,8 @@ ay_sel			and #f0		; command + least low 4 bits
 two_sn_bytes		dw 0
 			;  0,1,2,3,4,5,6,7,8,9,a,b, c,d,e, f
 ay_channels		db 0,0,0,0,0,0,0,0,1,8,5,10,3,9,6,16
+
+
 
 view_tilemem
 			di
@@ -262,7 +278,6 @@ vt2			exa
 			ld a,l
 start_tile_x		add 0
 			ld l,a
-			exa
 			ld a,(hl)
 			ld (de),a
 			inc e
@@ -390,12 +405,12 @@ send_sprites
 ;		out (#fe),a	
 			push ix
 			ld hl,RAM_SPRITETABLE
-			ld de,6*2
-			ld ix,spr
+;			ld de,6*2
+			ld ix,spr_db_end-6*2
 ;			ld a,b
 ;			cp 84/2+1
 ;			jr c,2f
-			ld b,84/2
+			ld b,82/2
 
 2			ld a,(hl)
 			inc l
@@ -416,13 +431,13 @@ send_sprites
 			ld (ix+2+6),a
 
 			ld a,(hl)
-			cp 224
+			cp #e0
 			jr z,1f
 			set 5,(ix+1) ; SP_ACT
 			set 5,(ix+1+6) ; SP_ACT
-			ld (ix+0),a
-			add 8
 			ld (ix+6),a
+			add 8
+			ld (ix+0),a
 			jr 3f
 1			res 5,(ix+1)
 			res 5,(ix+1+6)
@@ -431,18 +446,26 @@ send_sprites
 
 3			inc l
 			ld a,(hl)
-			ld (ix+4),a
-			inc a
 			ld (ix+4+6),a
+			inc a
+			ld (ix+4),a
 5			inc l
-			add ix,de
-			djnz 2b
+			or a
+			ld a,ixl
+			sub 12
+			ld ixl,a
+			jr nc,1f
+			jr z,1f
+			dec ixh
+1
+;			sbc ix,de
+6			djnz 2b
 			pop ix
 			ld hl,sprites
-			call set_ports
+			jp set_ports
 ;		xor a
 ;		out (#fe),a
-		ret
+;		ret
 
 /*
 The tile data is in a planar format, split by tile row. That means that the first byte contains the least significant bit, 
@@ -551,10 +574,9 @@ decode_pix		di
 			ld a,b
 			sub 8
 			ld b,a
-			inc c
-			inc c
-			inc c
-			inc c
+			ld a,c
+			add 4
+			ld c,a
 			jr nz,1f
 			ld a,b
 			add 8
@@ -570,6 +592,10 @@ decode_pix		di
 
 start:			di
 			ld sp,#ffff
+			call spr_off
+			ld hl,1
+			call cls_tileset
+
 			ld bc,PAGE2
 			ld a,Vid_page
 			out (c),a
@@ -577,9 +603,6 @@ start:			di
 			ld (#8000),hl
 			ld hl,init_ts
 			call set_ports
-			call spr_off
-			ld hl,1
-			call cls_tileset
 			ld bc, PAGE0
 			ld a,0
 			out (c),a
@@ -589,26 +612,45 @@ start:			di
 			inc b
 			inc a
 			out (c),a
+			call _SC1
+			ld hl,snd_init		
+			call init_volume
+			call _SC2
+			call init_volume
+			ld d,2
+			call init_volume1
+			ld a,#3f
+			ld i,a
+			rst 0                ; start the Pac-Man ROM!
 
-			ld a,7		; mixer
-			ld bc,ay_control
+init_volume		ld d,8
+init_volume1		ld bc,ay_control
+			ld a,(hl)
 			out (c),a
-			ld a,#f8;#e8	; all channel with noise
-			ld bc,ay_data
+			inc hl
+			ld a,(hl)
+			ld b,high ay_data
 			out (c),a
-
-			ld d,3
-			ld e,8		; mixer
-
-1			ld bc,ay_control
-			out (c),e
-			ld a,#0f	; all channel with noise
-			ld bc,ay_data
-			out (c),a
-			inc e
+			inc hl
 			dec d
-			jr nz,1b
-			jp  0                ; start the Pac-Man ROM!
+			jr nz,init_volume1
+			ret	
+
+snd_init	db 7,#e0,8,0,9,0,10,0
+		db 7,#f8,8,0,9,0,10,0
+		db #6,#1f
+
+_SC1		LD BC, #FFFD
+		LD A, #FE
+		OUT (C), A
+		RET
+ 
+; Set Chip 2: 
+
+_SC2		LD BC, #FFFD
+		LD A, #FF
+		OUT (C), A
+		RET
 
 cls_tileset
 		ld bc,PAGE1
@@ -689,6 +731,9 @@ key_scan
 1		ld a,l
 		ret
 
+	include "includes.asm"
+	include "tsconfig.asm"
+
 init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high MEMCONFIG,%00001110
 			db high VPAGE,Vid_page
@@ -699,16 +744,7 @@ init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high SGPAGE,Tile0_spr_page
 			db high TMPAGE, Tile_page
 			db high T0GPAGE,Tile0_spr_page
-//			db high T1GPAGE,Tile0_spr_page
-/*
-			db high T0XOFFSL,80
-			db high T0XOFFSH,1
-			db high T1XOFFSL,0
-			db high T0YOFFSL,0
-			db high T1YOFFSL,0
-			db high T0YOFFSH,1
-			db high T1YOFFSH,1
-*/
+		db #ff
 
 pal_dma			db #1a,low pal_db
 		        db #1b,high pal_db
@@ -727,7 +763,7 @@ sprites		db #1a,low spr_db
 		db #1d,0
 		db #1e,2
 		db #1f,0
-		db #26,(spr_db_end-spr_db)/2
+		db #26,#ff
 		db #28,0
 		db #27,DMA_RAM_SFILE
 		db #ff
@@ -738,9 +774,9 @@ spr_db
 		DB 0
 		DB %01000000	; leap
 		DB 0
-		DB %00010000
 		DB 0
-		DB %11100000
+		DB 0
+		DB 0
 
 /*		
 		DB 0
@@ -752,7 +788,7 @@ spr_db
 */
 
 spr
-		dup 84
+		dup 82
 		db 0		;y
 		db SP_SIZE8+SP_ACT
 		db #0		;x
@@ -761,6 +797,19 @@ spr
 		db #10+1
 		edup
 spr_db_end
+		DB 0
+		DB %01000000	; leap
+		DB 0
+		DB %00010000
+		DB 0
+		DB %11100000
+		DB 0
+		DB %01000000	; leap
+		DB 0
+		DB %00010000
+		DB 0
+		DB %11100000
+
 
 	align 256
 pal_db	ds 32*2
@@ -782,13 +831,12 @@ clr_screen
 			db #ff
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	include "includes.asm"
-	include "tsconfig.asm"
+
 sms_pal		incbin "_spg/sms.pal"
 
 
 
 end
 
-
+		DISPLAY "len: ",end-main
 		SAVEBIN "_spg/emu.bin",main, end-main

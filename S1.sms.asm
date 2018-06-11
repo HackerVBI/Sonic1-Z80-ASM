@@ -526,7 +526,7 @@ tsu_off		ld a,VID_256X192+$10+$20+VID_16C
 ;____________________________________________________________________________[$0073]___
 
 interruptHandler:
-	di				;disable interrupts during the interrupt!
+;	di				;disable interrupts during the interrupt!
 	
 	;push everything we're going to use to the stack so that when we return
 	 ;from the interrupt we don't find that our registers have changed
@@ -554,9 +554,9 @@ interruptHandler:
 	 ;a value of 0 means that it needs to be initialised, and then it counts
 	 ;down from 3
 	
-	ld	a, (RAM_RASTERSPLIT_STEP)
-	and	a			;doesn't change the number, but updates flags
-	jp	nz, doRasterSplit	;if it's not zero, deal with the particulars
+;	ld	a, (RAM_RASTERSPLIT_STEP)
+;	and	a			;doesn't change the number, but updates flags
+;	jp	nz, doRasterSplit	;if it's not zero, deal with the particulars
 	
 	;--- initialise raster split --------------------------------------------------
 	ld	a, (RAM_WATERLINE)	;check the water line height
@@ -569,6 +569,7 @@ interruptHandler:
 	;copy the water line position into the working space for the raster split.
 	 ;this is to avoid the water line changing height between the multiple
 	 ;interrupts needed to produce the split, I think
+/*
 	ld	(RAM_RASTERSPLIT_LINE), a
 	
 	;set the line interrupt to fire at line 10 (top of the screen),
@@ -588,15 +589,15 @@ interruptHandler:
 	;initialise the step counter for the water line raster split
 	ld	a, 3
 	ld	(RAM_RASTERSPLIT_STEP), a
-	
+*/	
 	;------------------------------------------------------------------------------
 	
 +	push	ix
 	push	iy
 
 ;	ld	b, (iy+vars.spriteUpdateCount)
-	call send_sprites
-	
+
+	call send_sprites		
 	;remember the current page 1 & 2 banks
 	ld	hl, (RAM_PAGE_1)
 	push	hl
@@ -607,7 +608,7 @@ interruptHandler:
 	;and if it is...
 	bit	0, (iy+vars.flags0)
 	call	z, _LABEL_F7_25
-	
+
 
 	;there's an extra bank of code located at ROM:$C000-$FFFF,
 	 ;page this into Z80:$4000-$7FFF
@@ -859,6 +860,7 @@ loadPaletteFromInterrupt_water:
 ;----------------------------------------------------------------------------[$01F2]---
 	
 doRasterSplit:
+
 ;A : the raster split step number (counts down from 3)
 	;step 1?
 	cp	1
@@ -872,16 +874,16 @@ doRasterSplit:
 	dec	a
 	ld	(RAM_RASTERSPLIT_STEP), a
 	
-	in	a, (SMS_CURRENT_SCANLINE)
+;	in	a, (SMS_CURRENT_SCANLINE)
 	ld	c, a
 	ld	a, (RAM_RASTERSPLIT_LINE)
 	sub	c			;work out the difference
 	
 	;set VDP register 10 with the scanline number to interrupt at next
 	 ;(that is, set the next interrupt to occur at the water line)
-	out	(SMS_VDP_CONTROL), a
+;	out	(SMS_VDP_CONTROL), a
 	ld	a, SMS_VDP_REGISTER_10
-	out	(SMS_VDP_CONTROL), a
+;	out	(SMS_VDP_CONTROL), a
 	
 	jp	+++
 	
@@ -1124,14 +1126,15 @@ updateVDPSprites:
 	 ;remaining and make them inactive
 	ld	a, b
 	sub	c
-	and $7f
 	inc a
 	ld	b, a
 
 	;move remaining sprites off screen
-	ld	a, 224
--	ld (hl),a
+-	ld (hl),224
 	add hl,de
+	ld a,l
+	cp $c0
+	jr nc,+
 ;	out	(SMS_VDP_DATA), a
 	djnz	-
 	
@@ -1973,7 +1976,7 @@ fillOverscrollCache:
 	bit	5,(iy+vars.flags0)
 	ret	z
 	
-;	di	
+	di	
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 4 & 5 ($10000-$17FFF)
 	ld	a,:S1_BlockMappings
 	call set_page1
@@ -1981,7 +1984,7 @@ fillOverscrollCache:
 	ld	a,:S1_BlockMappings+1
 	call set_page2
 	ld	(RAM_PAGE_2),a
-;	ei	
+	ei	
 	
 	;------------------------------------------------------------------------------
 	;get the address of the solidity data for the level's tilemap:
@@ -2741,13 +2744,14 @@ loadFloorLayout:
 ;____________________________________________________________________________[$0A40]___
 
 fadeOut:
+	di
 	ld	a, 1
 	call set_page1
 	ld	(RAM_PAGE_1), a
 	ld	a, 2
 	call set_page2
 	ld	(RAM_PAGE_2), a
-	
+	ei
 	ld	a, (iy+vars.spriteUpdateCount)
 	res	0, (iy+vars.flags0)	;wait for interrupt to occur
 	call	waitForInterrupt	 ;(refresh sprites?)
@@ -2784,6 +2788,7 @@ fadeOut:
 	
 	ld	(iy+vars.spriteUpdateCount), a
 	djnz	-
+
 	
 	pop	bc			;retrieve the loop counter
 	djnz	--			 ;before looping back
@@ -2840,14 +2845,14 @@ _aae:
 	ld	de,RAM_PALETTE
 	ld	bc,32
 	ldir	
-	
+	di
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	
+	ei
 	;switch to using the temporary palette on screen
 	ld	hl,RAM_PALETTE
 	ld	a,%00000011
@@ -2855,10 +2860,10 @@ _aae:
 	
 	;------------------------------------------------------------------------------
 	ld	c,(iy+vars.spriteUpdateCount)
-	ld	a,(RAM_VDPREGISTER_1)
-	or	%01000000		;enable screen (bit 6 of VDP register 1)
-	ld	(RAM_VDPREGISTER_1),a
-	
+;	ld	a,(RAM_VDPREGISTER_1)
+;	or	%01000000		;enable screen (bit 6 of VDP register 1)
+;	ld	(RAM_VDPREGISTER_1),a
+	call tsu_on	
 	;wait for interrupt (refresh screen)
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
@@ -2949,7 +2954,7 @@ _b50:
 
 ;----------------------------------------------------------------------------[$0B60]---
 
-_b60:
+_b60:	; Fade in
 	ld	(RAM_TEMP6),hl
 	
 	ld	hl,(RAM_LOADPALETTE_TILE)
@@ -2957,21 +2962,24 @@ _b60:
 	ld	bc,32
 	ldir	
 	
-+	ld	a,1
++	di
+	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	
+	ei
+
 	ld	hl,RAM_PALETTE
 	ld	a,%00000011
 	call	loadPaletteOnInterrupt
 	
 	ld	c,(iy+vars.spriteUpdateCount)
-	ld	a,(RAM_VDPREGISTER_1)
-	or	$40
-	ld	(RAM_VDPREGISTER_1),a
+;	ld	a,(RAM_VDPREGISTER_1)
+;	or	$40
+;	ld	(RAM_VDPREGISTER_1),a
+	
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	ld	(iy+vars.spriteUpdateCount),c
@@ -3191,13 +3199,13 @@ _LABEL_C52_106:
 ;	ld	a, (RAM_VDPREGISTER_1)
 ;	and	%10111111
 ;	ld	(RAM_VDPREGISTER_1), a
-	call tsu_off
-	ld hl,0
-	call cls_tileset
 
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
-	
+
+	call tsu_off
+	ld hl,0
+	call cls_tileset	
 	;map screen 1 tileset
 	ld	hl, $0000
 	ld	de, $0000
@@ -3237,6 +3245,7 @@ _LABEL_C52_106:
 	ld	(RAM_TEMP1),a
 	call	decompressScreen
 	ei
+	call tsu_on
 	ld	hl,S1_MapScreen1_Palette
 	call	_b50
 	jr	++
@@ -4015,11 +4024,10 @@ _1401:
 ;	ld	a,(RAM_VDPREGISTER_1)
 ;	and	%10111111		;remove bit 6 of VDP register 1
 ;	ld	(RAM_VDPREGISTER_1),a
-	call tsu_off
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	di	
-	
+	call tsu_off
 	;act complete sprite set
 	ld	hl,$351f
 	ld	de,$0000
@@ -4181,14 +4189,14 @@ _155e:
 	cp	19
 	jp	z,_172f
 
-	call tsu_off
 ;	ld	a,(RAM_VDPREGISTER_1)
 ;	and	%10111111
 ;	ld	(RAM_VDPREGISTER_1),a
 	
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
-	
+	call tsu_off
+
 	;load HUD sprites
 	ld	hl,$b92e
 	ld	de,$3000
@@ -5004,7 +5012,7 @@ main_start:
 	ld	($D23F), a
 	
 	xor	a			;set A to 0
-;	ld a,$3
+;	ld a,$1
 	ld	(RAM_CURRENT_LEVEL), a	;set starting level!	$D23E
 ;	xor a
 	ld	(RAM_FRAMECOUNT), a
@@ -5045,12 +5053,15 @@ _LABEL_1C9F_104:
 	res	0, (iy+vars.flags2)
 	res	1, (iy+vars.flags2)
 	call	hideSprites
+
 	call	_LABEL_C52_106
+
 	bit	1, (iy+vars.scrollRingFlags)
 	jr	z, _LABEL_1CBD_120
 	jp	c, --
 	
 _LABEL_1CBD_120:
+
 	call	fadeOut
 	call	hideSprites
 	bit	0, (iy+vars.scrollRingFlags)
@@ -5090,10 +5101,12 @@ _fillMemoryWithValue:
 
 _LABEL_1CED_131:
 	;load page 1 (Z80:$4000-$7FFF) with bank 5 (ROM:$14000-$17FFF)
+	di
 	ld	a, 5
 	call set_page1
-	ld	(RAM_PAGE_1), a
-	
+	ld (RAM_PAGE_1), a
+	ei
+
 	ld	a, (RAM_CURRENT_LEVEL)
 	bit	4, (iy+vars.flags6)
 	jr	z, +
@@ -5112,13 +5125,12 @@ _LABEL_1CED_131:
 	;is this a null level? (offset $0000); the `OR H` will set Z if the result
 	 ;is 0, this will only ever happen with $0000
 	or	h				
-	jp	z, _LABEL_258B_133
-	
+	jp	z, _LABEL_258B_133	; Finel screen with scroll. Finished
 	;add the pointer value to the level pointers table to find the start of the
 	 ;level header (the level headers begin after the level pointers)
 	add	hl, de			
 	call	loadLevel
-	
+
 	set	0,(iy+vars.flags2)
 	set	1,(iy+vars.flags2)
 	set	1,(iy+vars.flags0)
@@ -5132,10 +5144,10 @@ _LABEL_1CED_131:
 	;auto scroll right?
 	bit	3,(iy+vars.scrollRingFlags)
 	call	nz,lockCameraHorizontal
-	
+
 	ld	b,$10
 -	push	bc
-	
+
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
 	
@@ -5149,11 +5161,11 @@ _LABEL_1CED_131:
 	ld	a,11
 	call set_page1
 	ld	(RAM_PAGE_1),a
-	
+
 	;are rings enabled?
 	bit	2,(iy+vars.scrollRingFlags)
 	call	nz,updateRingFrame
-	
+
 	ld	hl,$0060
 	ld	($D25F),hl
 	
@@ -5167,24 +5179,31 @@ _LABEL_1CED_131:
 	ld	($D265),hl
 	
 	call	_239c
-	
+
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 1 & 2 ($4000-$BFFF)
+	di
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	
+	ei
+
 	call	_2e5a
 	call	updateCamera
 	call	fillOverscrollCache
-	
+
 	set	5,(iy+vars.flags0)		
 	
 	pop	bc
 	djnz	-
-	
+/*
+h1	inc a
+	and $7
+	out ($fe),a
+	jr h1	
+*/
 	;demo mode?
 	bit	1,(iy+vars.scrollRingFlags)
 	jr	z,_1dae
@@ -5409,14 +5428,14 @@ _1f06:				; Palette effect for collision with special hero / special stage
 	ld	($D2B1),a
 	ld	e,a
 	
-;	di	
+	di	
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	
+	ei	
 	ld	e,$00
 	ld	a,($D2B2)
 	ld	hl,(RAM_LOADPALETTE_TILE)
@@ -5441,6 +5460,7 @@ _1f06:				; Palette effect for collision with special hero / special stage
 	ld hl,tileram_adr
 	ld (hl),a
 +
+	ei
 	ld bc,$0100
 	jp send_palette
 
@@ -5546,8 +5566,11 @@ _1fa9:
 	bit	7,(iy+vars.flags6)
 	call	nz,_20a4
 	call	hideSprites
+
 	call	_155e			;Act Complete screen?
-	
+;	ld a,2
+;	out ($fe),a
+
 	ld	a,(RAM_CURRENT_LEVEL)
 	cp	$1a
 	jr	nc,++
@@ -5555,17 +5578,28 @@ _1fa9:
 	jr	z,+
 	ld	hl,_2047
 	call	_b60
+;	ld a,3
+;	out ($fe),a
+
 	ld	a,(RAM_CURRENT_LEVEL)
 	push	af
 	ld	a,($D23F)
 	ld	(RAM_CURRENT_LEVEL),a
 	inc	a
 	ld	($D23F),a
+;	ld a,4
+;	out ($fe),a
 	call	_LABEL_1CED_131
 	pop	af
 	ld	(RAM_CURRENT_LEVEL),a
 +	ld	hl,RAM_CURRENT_LEVEL	;note use of HL here
-	inc	(hl)
+	ld a,(hl)			; level 2 bug
+	inc a
+	cp 1
+	jr nz,lu1
+;	inc	(hl)
+	inc a
+lu1	ld (hl),a
 	ld	a,$01
 	ret
 	
@@ -5678,6 +5712,7 @@ loadLevel:
 ;	ld	a, (RAM_VDPREGISTER_1)
 ;	and	%10111111		;remove bit 6
 ;	ld	(RAM_VDPREGISTER_1), a
+
 	call tsu_off	
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
@@ -5724,6 +5759,7 @@ loadLevel:
 	 ;HL will be $D311 + the level number divided by 8
 	ld	hl, $D311
 	call	getLevelBitFlag
+
 	
 	;DE will now be $D311 + the level number divided by 8
 	ex	de, hl
@@ -5788,6 +5824,8 @@ loadLevel:
 	ld	a, 9
 	call	decompressArt
 	
+
+
 	;------------------------------------------------------------------------------
 	;begin reading the level header:
 	
@@ -6046,14 +6084,14 @@ loadLevel:
 	add	hl,de
 	
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 1 & 2 ($4000-$BFFF)
-;	di	
+	di	
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-;	ei	
+	ei	
 	
 	;read the palette pointer into HL
 	ld	a,(hl)
@@ -6107,14 +6145,14 @@ loadLevel:
 	add	hl,bc			
 	
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 1 & 2 ($4000-$BFFF)
-;	di	
+	di	
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-;	ei	
+	ei	
 	
 	;read the cycle palette pointer
 	ld	a,(hl)
@@ -6467,10 +6505,11 @@ _LABEL_258B_133:			; $2581
 ;	ld	a,(RAM_VDPREGISTER_1)
 ;	or	%01000000
 ;	ld	(RAM_VDPREGISTER_1),a
-	call tsu_on
+
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
-	
+	call tsu_on
+		
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
