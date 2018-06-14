@@ -458,11 +458,16 @@ set_page2	push bc
 ;the `rst $18` instruction jumps here
 .ORG $0018
 	jp	playMusic		;play a song specified by A
+.DEF temp0 $e3f0
+.DEF temp1 temp0+1	
+.DEF temp2 temp1+1
+.DEF temp3 temp2+1	
+/*
 temp0	.db 0
 temp1	.db 0
 temp2	.db 0
 temp3	.db 0
-
+*/
 
 ;the `rst $20` instruction jumps here
 .ORG $0020
@@ -545,7 +550,7 @@ interruptHandler:
 ;	res	0,(iy+vars.scrollRingFlags)	
 
 ;	in	a, (SMS_VDP_CONTROL)	;get the status of the VDP
-
+/*
 	bit	7, (iy+vars.flags6)	;check the underwater flag
 	jr	z, +			;if off, skip ahead
 	
@@ -565,7 +570,7 @@ interruptHandler:
 	
 	cp	$FF			;or 255 (below the screen),
 	jr	z, +			;skip
-	
+*/	
 	;copy the water line position into the working space for the raster split.
 	 ;this is to avoid the water line changing height between the multiple
 	 ;interrupts needed to produce the split, I think
@@ -634,7 +639,7 @@ button: 0 for pressed, 1 for released
 ;	bit	4, (iy+vars.joypad)	;joypad button A?
 ;	call	z, setJoypadButtonB	;set joypad button B too
 	
-	call	_LABEL_625_57
+;	call	_LABEL_625_57
 	
 	;return pages 1 & 2 to the banks before we started messing around here
 	pop	hl
@@ -1025,7 +1030,7 @@ playSFX:
 	ret	
 
 ;____________________________________________________________________________[$031B]___
-
+/*
 initVDPRegisterValues:							;	cache:
 .db %00100110   ;VDP Register 0:						$D218
     ;......x.    stretch screen (33 columns)
@@ -1054,7 +1059,7 @@ initVDPRegisterValues:							;	cache:
 .db $00		;VDP Register 8: horizontal scroll offset			$D220
 .db $00		;VDP Register 9: vertical scroll offset				$D221
 .db $FF		;VDP Register 10: disable line interrupts			$D222
-
+*/
 ;____________________________________________________________________________[$031C]___
 ;a commonly used routine to essentially 'refresh the screen' by halting main execution
  ;until the interrupt handler has done its work
@@ -3486,6 +3491,7 @@ _0e4b:
 	djnz	-
 	jp	_b
 
+.org $0e72
 _0e72:	
 .db <_1129, >_1129, $04, $01
 .db <_113b, >_113b, $04, $00
@@ -3600,6 +3606,7 @@ _0edd:
 	pop	hl
 	ret
 ;______________________________________________________________________________________
+.ORG $0F0E
 
 S1_MapScreen1_Palette:			;[$0F0E]
 .db $35, $01, $06, $0B, $04, $08, $0C, $3D, $1F, $39, $2A, $14, $25, $2B, $00, $3F
@@ -4179,7 +4186,8 @@ _DATA_153e_:
 
 ; Data from 154E to 155D (16 bytes)
 _DATA_154E_:
-.db $1E $15 $22 $15 $26 $15 $2A $15 $2E $15 $32 $15 $36 $15 $3A $15
+.dw _DATA_151E_, _DATA_151E_+4, _DATA_151E_+8,_DATA_151E_+12,_DATA_151E_+16,_DATA_151E_+20,_DATA_151E_+24,_DATA_151E_+28
+;.db $1E $15 $22 $15 $26 $15 $2A $15 $2E $15 $32 $15 $36 $15 $3A $15
 
 ;____________________________________________________________________________[$155E]___
 ;Act Complete screen?
@@ -4950,7 +4958,7 @@ __	ld      a,(hl)
 
 ;____________________________________________________________________________[$1B51]___
 ;UNKNOWN
-
+.org $1b51
 _1b51:
 .db $83, $84, $93, $94, $A3, $A4, $B3, $B4, $85, $86, $95, $96, $A5, $A6, $B5, $B6
 .db $87, $88, $97, $98, $A7, $A8, $B7, $B8
@@ -5011,10 +5019,10 @@ main_start:
 	ld	a, $1C
 	ld	($D23F), a
 	
-	xor	a			;set A to 0
-;	ld a,$1
+;	xor	a			;set A to 0
+	ld a,0
 	ld	(RAM_CURRENT_LEVEL), a	;set starting level!	$D23E
-;	xor a
+	xor a
 	ld	(RAM_FRAMECOUNT), a
 	ld	(iy+$0d), a
 	
@@ -5038,7 +5046,8 @@ main_start:
 	res	1, (iy+vars.flags2)
 	call	hideSprites
 	call	titleScreen
-	
+
+
 	res	1, (iy+vars.scrollRingFlags)
 	jr	c, _LABEL_1C9F_104
 	
@@ -5063,7 +5072,9 @@ _LABEL_1C9F_104:
 _LABEL_1CBD_120:
 
 	call	fadeOut
+
 	call	hideSprites
+
 	bit	0, (iy+vars.scrollRingFlags)
 	jr	nz, +
 	bit	4, (iy+vars.flags6)
@@ -5076,7 +5087,6 @@ _LABEL_1CBD_120:
 	djnz	-
 	
 	rst	$20			;`muteSound`
-	
 ++	call	_LABEL_1CED_131
 	and	a
 	jp	z,--
@@ -5125,12 +5135,14 @@ _LABEL_1CED_131:
 	;is this a null level? (offset $0000); the `OR H` will set Z if the result
 	 ;is 0, this will only ever happen with $0000
 	or	h				
-	jp	z, _LABEL_258B_133	; Finel screen with scroll. Finished
+	jp	z, _LABEL_258B_133	; End screen with scroll. Finished
 	;add the pointer value to the level pointers table to find the start of the
 	 ;level header (the level headers begin after the level pointers)
-	add	hl, de			
+	add	hl, de	
+
 	call	loadLevel
 
+	di
 	set	0,(iy+vars.flags2)
 	set	1,(iy+vars.flags2)
 	set	1,(iy+vars.flags0)
@@ -5147,10 +5159,10 @@ _LABEL_1CED_131:
 
 	ld	b,$10
 -	push	bc
-
+	ei
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
-	
+	di
 	ld	(iy+vars.joypad),$ff	;clear joypad input
 	
 	ld	hl,(RAM_FRAMECOUNT)
@@ -5181,19 +5193,17 @@ _LABEL_1CED_131:
 	call	_239c
 
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 1 & 2 ($4000-$BFFF)
-	di
+
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	ei
-
 	call	_2e5a
 	call	updateCamera
 	call	fillOverscrollCache
-
+	ei
 	set	5,(iy+vars.flags0)		
 	
 	pop	bc
@@ -5593,13 +5603,13 @@ _1fa9:
 	pop	af
 	ld	(RAM_CURRENT_LEVEL),a
 +	ld	hl,RAM_CURRENT_LEVEL	;note use of HL here
-	ld a,(hl)			; level 2 bug
-	inc a
-	cp 1
-	jr nz,lu1
-;	inc	(hl)
-	inc a
-lu1	ld (hl),a
+;	ld a,(hl)			; level 2 bug
+;	inc a
+;	cp 1
+;	jr nz,lu1
+	inc	(hl)
+;	inc a
+;lu1	ld (hl),a
 	ld	a,$01
 	ret
 	
@@ -5713,10 +5723,12 @@ loadLevel:
 ;	and	%10111111		;remove bit 6
 ;	ld	(RAM_VDPREGISTER_1), a
 
-	call tsu_off	
+	call tsu_off
+	ei	
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
-	
+	di
+
 	;copy the level header from ROM to RAM starting at $D354
 	 ;(this copies 40 bytes, even though level headers are 37 bytes long.
 	 ; the developers probably removed header bytes later in development)
@@ -5785,7 +5797,8 @@ loadLevel:
 	ld	hl, $FFFE
 	ld	(RAM_TIME), hl
 	ld	hl, _23ff
-	
+
+
 	bit	4, (iy+vars.flags6)
 	jr	z, +
 	
@@ -5823,7 +5836,6 @@ loadLevel:
 	ld	de, $3000
 	ld	a, 9
 	call	decompressArt
-	
 
 
 	;------------------------------------------------------------------------------
@@ -5865,7 +5877,6 @@ loadLevel:
 	 ;HL will be $D311 + the level number divided by 8
 	ld	hl,$D311
 	call	getLevelBitFlag
-	
 	ld	a,(hl)
 	ex	de,hl			;DE will now be $D311+
 	
@@ -6008,7 +6019,7 @@ loadLevel:
 	ld	de,$4000		;re-base the Floor Layout address to Page 1
 	add	hl,de
 	call	loadFloorLayout
-	
+
 	;return to our place in the level header
 	pop	hl
 	
@@ -6069,7 +6080,8 @@ loadLevel:
 	ld	de,$2000
 	call	decompressArt
 	pop	hl
-	
+
+
 	;IP: Initial Palette
 	ld	a,(hl)
 	
@@ -6102,6 +6114,7 @@ loadLevel:
 	;queue the palette to be loaded via the interrupt
 	ld	a,%00000011
 	call	loadPaletteOnInterrupt
+
 	call tsu_on
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt
@@ -6145,14 +6158,13 @@ loadLevel:
 	add	hl,bc			
 	
 	;switch pages 1 & 2 ($4000-$BFFF) to banks 1 & 2 ($4000-$BFFF)
-	di	
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	ei	
+
 	
 	;read the cycle palette pointer
 	ld	a,(hl)
@@ -6180,10 +6192,12 @@ loadLevel:
 	add	hl,de
 	
 	;switch page 1 ($4000-$BFFF) to page 5 ($14000-$17FFF)
+	di
 	ld	a,5
 	call set_page1
 	ld	(RAM_PAGE_1),a
-	call	loadObjectLayout
+	ei
+	call	loadObjectLayout			;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	
 	pop	hl
 	
@@ -6247,8 +6261,8 @@ loadLevel:
 
 loadObjectLayout:
 ;HL : address of an object layout
+
 	push	hl
-	
 	;add the Sonic object to the beginning of the list
 	ld	ix,RAM_SONIC
 	ld	de,$001A		;length of the object?
@@ -6271,9 +6285,8 @@ loadObjectLayout:
 	;loop over the number of objects:
 -	ld	a,(hl)			;load the Object ID
 	inc	hl			;move on to the X & Y position
-	call	loadObject
+	call	loadObject		; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	djnz	-
-	
 	;------------------------------------------------------------------------------
 	ld	a,($D2F2)		;retrieve the number of objects in the layout
 	ld	b,a
@@ -6424,6 +6437,7 @@ _23c9:
 	ld	a,($D2A5)
 	ld	(RAM_CYCLEPALETTE_SPEED),a
 	ret
+
 
 _23f9:
 .db $05, $04, $03, $02, $01, $00
@@ -6896,6 +6910,7 @@ __	ld      a,(hl)
 	pop	hl
 	jp	_b
 
+.org $2825
 _2825:
 .db $5c, $5e, $ff
 _2828:		;credits screen palette
@@ -7140,7 +7155,7 @@ S1_Object_Pointers:
 .dw _7b95				;#55: "make sonic blink"
 
 ;____________________________________________________________________________[$2BA2]___
-
+.org $2ba2
 _2ba2:
 .db $00, $01, $00, $02
 .db $00, $01, $00, $02, $20, $00, $20, $01, $20, $00, $E0, $00, $20, $00, $20, $01
@@ -9190,6 +9205,7 @@ _3a03:
 +	ld	(hl),a
 	ret
 
+.org $3a62
 _3a62:
 .db $01, $30, $00
 

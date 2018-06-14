@@ -2,16 +2,17 @@
 Sprite_page		equ #18
 Tile_page		equ #3f
 Vid_page		equ #40
-Tile0_spr_page		equ #20
-
+Tile0_spr_page		equ #30
+rom_page		equ #20
 Main_emu_page		equ #10
 tilemem			equ #11
 
 RAM_PAGE_1	equ $D235
-RAM_TEMP1	equ $D20E
 RAM_SPRITETABLE equ $D000	;X/Y/I data for the 64 sprites
 
 viewer=1
+
+
 			org #e400
 main
 			jp start
@@ -99,7 +100,10 @@ ay_send_byte
 			and #0f
 			jr ay_send_ex
 
-ay_noise		call _SC2
+ay_noise		ld a,(ay_num+1)
+			cp 4
+			jr z,ay_send_ex2
+			call _SC2
 			ld a,9
 			ld b,high ay_control
 			out (c),a
@@ -400,39 +404,97 @@ update_2byte_tilemem	push hl
 RAM_SPRITETABLE		$D000	;X/Y/I data for the 64 sprites
 */
 
-send_sprites
+send_sprites		
 ;		ld a,1
 ;		out (#fe),a	
 			push ix
 			ld hl,RAM_SPRITETABLE
-;			ld de,6*2
 			ld ix,spr_db_end-6*2
-;			ld a,b
-;			cp 84/2+1
-;			jr c,2f
-			ld b,82/2
+			ld e,0
+sc1			ld a,l
+			cp #c0
+			jr z,sp_ex
+			ld b,(hl)	; I
+			inc l
+			ld a,(hl)	; Y
+			inc l
+			ld c,(hl)	; X
+			inc l
+			cp #e0
+			jr z,sc1
 
+			ld (ix+6),a	; Y
+			add 8
+			ld (ix+0),a
+
+			ld a,b		; X
+			sub 8
+			cp 256-7
+			jr nc,sc1
+
+			ld (ix+2),a
+			ld (ix+2+6),a
+
+			ld a,c		; I
+			ld (ix+4+6),a
+			inc a
+			ld (ix+4),a
+
+			ld a,SP_SIZE8+SP_ACT
+			ld (ix+1),a
+			ld (ix+1+6),a
+			xor a
+			ld (ix+3),a
+			ld (ix+3+6),a
+			ld a,#10+1
+			ld (ix+5),a
+			ld (ix+5+6),a
+
+			or a
+			ld a,ixl
+			sub 12
+			ld ixl,a
+			jr nc,1f
+			jr z,1f
+			dec ixh
+1
+			inc e
+			ld a,e
+			cp 82/2
+			jr nz,sc1
+			jr sp_ex1
+
+sp_ex			ld a,82/2
+			sub e
+			ld b,a
+			push ix
+			pop hl
+			inc hl
+			ld de,6
+			add hl,de
+2			xor a
+			ld (hl),a
+			sbc hl,de
+			ld (hl),a
+			sbc hl,de
+1			djnz 2b
+
+sp_ex1			pop ix
+			ld hl,sprites
+			jp set_ports
+
+/*
 2			ld a,(hl)
 			inc l
 			sub 7
 			cp 256-7
 			jr nc,1f
-/*
-			add #28
-			jr nc,1f
-			set 0,(ix+3)
-			set 0,(ix+3+6)
-			jr 3f
 
-1			res 0,(ix+3)
-			res 0,(ix+3+6)
-*/
 3			ld (ix+2),a
 			ld (ix+2+6),a
 
 			ld a,(hl)
-			cp #e0
-			jr z,1f
+
 			set 5,(ix+1) ; SP_ACT
 			set 5,(ix+1+6) ; SP_ACT
 			ld (ix+6),a
@@ -466,6 +528,7 @@ send_sprites
 ;		xor a
 ;		out (#fe),a
 ;		ret
+*/
 
 /*
 The tile data is in a planar format, split by tile row. That means that the first byte contains the least significant bit, 
@@ -473,7 +536,8 @@ bit 0, of each pixel in the top row of the tile. The second byte contains bit 1 
 Thus the top eight pixels are represented by the first four bytes of data, split by “bitplane”. The process is repeated for consecutive rows of the tile,
  producing 32 bytes total. 
 */
-decode_pix		di
+decode_pix		
+			di
 			push de
 			push bc
 			ld bc,PAGE1
@@ -591,10 +655,21 @@ decode_pix		di
 			ret
 
 start:			di
-			ld sp,#ffff
+			call check_ts
+			ld (ay_num+1),a
+; 4 — single AY (FE FE)
+; 3 — double AY (FD FE)
+			ld sp,stack
 			call spr_off
 			ld hl,1
 			call cls_tileset
+			ld hl,copy_rom
+			call set_ports
+			call dma_stats
+			ld b,#27
+			ld a,DMA_RAM
+			out (c),a
+			call dma_stats
 
 			ld bc,PAGE2
 			ld a,Vid_page
@@ -604,7 +679,7 @@ start:			di
 			ld hl,init_ts
 			call set_ports
 			ld bc, PAGE0
-			ld a,0
+			xor a
 			out (c),a
 			inc b
 			inc a
@@ -612,14 +687,20 @@ start:			di
 			inc b
 			inc a
 			out (c),a
+;			ld b,high MEMCONFIG
+;			ld a,MEM_W0RAM+MEM_W0MAP_N
+;			out (c),a
 			call _SC1
 			ld hl,snd_init		
 			call init_volume
+ay_num			ld a,0
+			cp 4
+			jr z,1f
 			call _SC2
 			call init_volume
 			ld d,2
 			call init_volume1
-			ld a,#3f
+1			ld a,#3f
 			ld i,a
 			rst 0                ; start the Pac-Man ROM!
 
@@ -652,7 +733,7 @@ _SC2		LD BC, #FFFD
 		OUT (C), A
 		RET
 
-cls_tileset
+cls_tileset	
 		ld bc,PAGE1
 		ld a,Tile_page
 		out (c),a
@@ -737,14 +818,26 @@ key_scan
 init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high MEMCONFIG,%00001110
 			db high VPAGE,Vid_page
-			db high SYSCONFIG,6	; 
+			db high SYSCONFIG,6
 			db high BORDER,0	; border
 			db high TSCONFIG,TSU_SEN+TSU_T0EN+TSU_T0ZEN;+TSU_T1EN +TSU_T1ZEN		; TSConfig
 			db high PALSEL,0
+			db high T0YOFFSH,0
 			db high SGPAGE,Tile0_spr_page
 			db high TMPAGE, Tile_page
 			db high T0GPAGE,Tile0_spr_page
 		db #ff
+
+copy_rom		db #1a,0
+		        db #1b,0
+			db #1c,rom_page
+		        db #1d,0
+		        db #1e,0
+		        db #1f,0
+		        db #26,#ff
+		        db #28,#ff
+			db #27,DMA_RAM
+			db #ff
 
 pal_dma			db #1a,low pal_db
 		        db #1b,high pal_db
@@ -788,28 +881,22 @@ spr_db
 */
 
 spr
-		dup 82
-		db 0		;y
-		db SP_SIZE8+SP_ACT
-		db #0		;x
-		db SP_SIZE8
-		db #0
-		db #10+1
-		edup
+	ds 82*6
 spr_db_end
+	
 		DB 0
 		DB %01000000	; leap
 		DB 0
-		DB %00010000
 		DB 0
-		DB %11100000
+		DB 0
+		DB 0
+		
 		DB 0
 		DB %01000000	; leap
 		DB 0
-		DB %00010000
 		DB 0
-		DB %11100000
-
+		DB 0
+		DB 0
 
 	align 256
 pal_db	ds 32*2
@@ -828,14 +915,47 @@ clr_screen
 			defb #26,#ff	;
 			defb #27,%00000100
 */
-			db #ff
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 sms_pal		incbin "_spg/sms.pal"
 
 
+stack	equ #fff0
 
+check_ts	
+	ld de,#ffbf
+	ld bc,#fffd
+	ld hl,#fe00
+	out (c),h ;chip1
+	out (c),L ;reg 0
+	ld b,e
+	out (c),c ;val #FD
+	ld b,d
+	out (c),b ;chip2
+	out (c),l ;reg 0
+	ld b,e
+	out (c),h ;val #FE
+	ld b,d
+	out (c),h ;chip1
+	out (c),L ;reg 0
+	in h,(c)
+	out (c),b ;chip2
+	out (c),L ;reg 0
+	in a,(c)
+	xor h
+	ret nz
+	ld a,4
+	inc h
+	and h
+	ret
+
+; 0 — no chip (FF FF)
+; 4 — single AY (FE FE)
+; 3 — double AY (FD FE)
+; 1 — TS, no 1st (FF FE)
+; 2 — TS, no 2nd (FD FF)
 end
 
 		DISPLAY "len: ",end-main
