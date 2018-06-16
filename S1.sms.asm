@@ -4384,8 +4384,10 @@ _155e:
 	or	d
 	or	e
 	jp	nz,-
+
+	rst	$20
 	ld	b,$b4
-	
+
 -	push	bc
 	res	0,(iy+vars.flags0)
 	call	waitForInterrupt

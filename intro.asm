@@ -152,7 +152,7 @@ sin1		ld a,0
 		ld b,high TSCONFIG
 		xor a
 		out (c),a
-		ld b,#20
+		ld b,24
 1		halt
 		DJNZ 1B
 		jp #e400
@@ -366,7 +366,7 @@ screen
 	        db #1e,60
 	        db #1f,Vid_page
 	        db #26,208/2-1
-	        db #28,216-1
+	        db #28,208-1
 		db #27,DMA_DALGN + DMA_ASZ + DMA_BLT ;DMA_RAM
 		db #ff
 

@@ -16,6 +16,7 @@ IF %ERRORLEVEL% EQU 0 WLADX\wla-z80 -v s1.sms.asm
 ECHO.
 ECHO Compiling start file...
 _spg\sjasmplus "sonic.asm"
+_spg\sjasmplus "intro.asm"
 
 ECHO.
 ECHO Linking ROM...

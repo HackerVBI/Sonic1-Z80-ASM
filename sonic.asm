@@ -76,6 +76,16 @@ send_palette
 			inc hl
 			pop bc
 			djnz 1b
+			push hl
+			ld hl,pal_db
+			ld c,(hl)
+			inc l
+			ld b,(hl)
+			ld hl,pal_db+32*2+2
+			ld (hl),c
+			inc l
+			ld (hl),b
+			pop hl
 			ld hl,pal_dma
 			call set_ports
 			ex de,hl
@@ -256,7 +266,8 @@ view_tilemem
 			rl h
 			add a			;x8
 			rl h
-			ld (start_tile_x+1),a
+			ld ixl,a
+;			ld (start_tile_x+1),a
 			ld a,h
 			add #f8
 			ld h,a
@@ -271,30 +282,36 @@ view_tilemem
 			ld a,l
 			exa
 			ld de,#4000		; TileMap adress
-			ld c,24			; screen height
-vt1			ld b,32			; screen width
+			ld c,25			; screen height
+vt1			ld b,32/8			; screen width
 
-vt2			exa
+vt2
+	dup 8
+			exa
 			add 2
 			and #3f
 			ld l,a
 			exa
 			ld a,l
-start_tile_x		add 0
+;start_tile_x
+			add ixl
 			ld l,a
 			ld a,(hl)
 			ld (de),a
 			inc e
 			inc e
+	edup
 			djnz vt2
 			ld e,b
 			inc d
 ;			exa
 ;			add 2
 ;			exa
-			ld a,(start_tile_x+1)
+;			ld a,(start_tile_x+1)
+			ld a,ixl
 			add #40
-			ld (start_tile_x+1),a
+			ld ixl,a
+;			ld (start_tile_x+1),a
 			ld a,0
 			adc h
 			cp #f8+7
@@ -302,7 +319,7 @@ start_tile_x		add 0
 			ld a,#f8
 1			ld h,a
 			dec c
-			jr nz,vt1
+			jp nz,vt1
 
 	ENDIF		
 			ld a,(RAM_PAGE_1)
@@ -672,6 +689,21 @@ start:			di
 			call dma_stats
 
 			ld bc,PAGE2
+			push bc
+			ld a,Tile0_spr_page+1
+			out (c),a
+			ld a,#11
+			ld b,4
+			ld hl,#8000
+1			ld (hl),a
+			inc h
+			bit 3,h
+			jr z,1b
+			ld h,#80
+			inc l
+			djnz 1b
+			out (c),a
+			pop bc
 			ld a,Vid_page
 			out (c),a
 			ld hl,$0		;1111 - white
@@ -689,6 +721,12 @@ start:			di
 			out (c),a
 ;			ld b,high MEMCONFIG
 ;			ld a,MEM_W0RAM+MEM_W0MAP_N
+;			out (c),a
+			ld b,high VSINTL
+			ld a,#ff;#10
+			out (c),a
+;			inc b
+;			ld a,1
 ;			out (c),a
 			call _SC1
 			ld hl,snd_init		
@@ -738,8 +776,23 @@ cls_tileset
 		ld a,Tile_page
 		out (c),a
 		ld (#4000),hl
+		push hl
 		ld hl,tileset_clr
 		call set_ports
+		call dma_stats
+		pop hl
+		ld a,l
+		or a
+		jr nz,1f
+		ld hl,#4000+32*2+#80-2
+		ld b,24
+		xor a
+2		ld (hl),a
+		inc l
+		ld (hl),2+#20
+		dec l
+		inc h
+		djnz 2b
 		ld bc,PAGE1
 		ld a,(RAM_PAGE_1)
 		out (c),a
@@ -820,13 +873,14 @@ init_ts			db high VCONFIG,VID_320X240+VID_NOGFX
 			db high VPAGE,Vid_page
 			db high SYSCONFIG,6
 			db high BORDER,0	; border
-			db high TSCONFIG,TSU_SEN+TSU_T0EN+TSU_T0ZEN;+TSU_T1EN +TSU_T1ZEN		; TSConfig
+			db high TSCONFIG,TSU_SEN+TSU_T0EN+TSU_T0ZEN+TSU_T1EN +TSU_T1ZEN		; TSConfig
 			db high PALSEL,0
 			db high T0YOFFSH,0
 			db high SGPAGE,Tile0_spr_page
 			db high TMPAGE, Tile_page
 			db high T0GPAGE,Tile0_spr_page
-		db #ff
+			db high T1GPAGE,Tile0_spr_page
+			db #ff
 
 copy_rom		db #1a,0
 		        db #1b,0
@@ -845,7 +899,7 @@ pal_dma			db #1a,low pal_db
 		        db #1d,0
 		        db #1e,0
 		        db #1f,0
-		        db #26,#20
+		        db #26,#21
 		        db #28,0
 			db #27,#84
 			db #ff
@@ -899,7 +953,7 @@ spr_db_end
 		DB 0
 
 	align 256
-pal_db	ds 32*2
+pal_db	ds 32*2+4
 
 
 /*			
