@@ -3851,6 +3851,8 @@ titleScreen:
 ;	and	%10111111		;remove bit 6 of $D219
 ;	ld	(RAM_VDPREGISTER_1), a
 	call tsu_off
+	ld hl,1
+	call cls_tileset
 	;wait for interrupt to complete?
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
@@ -4071,7 +4073,7 @@ _1401:
 	call	waitForInterrupt
 	
 	djnz	-
-	
+	rst $20
 	ld	a,($D284)
 	and	a
 	jr	nz,+
@@ -4386,7 +4388,7 @@ _155e:
 	jp	nz,-
 
 	rst	$20
-	ld	b,$b4
+	ld	b,$60
 
 -	push	bc
 	res	0,(iy+vars.flags0)
@@ -5022,7 +5024,7 @@ main_start:
 	ld	($D23F), a
 	
 ;	xor	a			;set A to 0
-	ld a,0
+	ld a,2
 	ld	(RAM_CURRENT_LEVEL), a	;set starting level!	$D23E
 	xor a
 	ld	(RAM_FRAMECOUNT), a
@@ -5440,14 +5442,13 @@ _1f06:				; Palette effect for collision with special hero / special stage
 	ld	($D2B1),a
 	ld	e,a
 	
-	di	
 	ld	a,1
 	call set_page1
 	ld	(RAM_PAGE_1),a
 	ld	a,2
 	call set_page2
 	ld	(RAM_PAGE_2),a
-	ei	
+
 	ld	e,$00
 	ld	a,($D2B2)
 	ld	hl,(RAM_LOADPALETTE_TILE)
@@ -5472,8 +5473,7 @@ _1f06:				; Palette effect for collision with special hero / special stage
 	ld hl,tileram_adr
 	ld (hl),a
 +
-	ei
-	ld bc,$0100
+	ld b,$01
 	jp send_palette
 
 ;	out	(SMS_VDP_DATA),a
