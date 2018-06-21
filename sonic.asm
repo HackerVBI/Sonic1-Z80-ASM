@@ -678,8 +678,6 @@ start:			di
 ; 3 — double AY (FD FE)
 			ld sp,stack
 			call spr_off
-			ld hl,1
-			call cls_tileset
 			ld hl,copy_rom
 			call set_ports
 			call dma_stats
@@ -793,7 +791,7 @@ cls_tileset
 		dec l
 		inc h
 		djnz 2b
-		ld bc,PAGE1
+1		ld bc,PAGE1
 		ld a,(RAM_PAGE_1)
 		out (c),a
 		ret

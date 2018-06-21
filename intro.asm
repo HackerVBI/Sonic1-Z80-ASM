@@ -11,6 +11,7 @@ screen_page		equ #13
 		org #c000
 
 start:		di
+		nop
 		ld sp,#ffff
 		call sprite_off
 		call font_conversion
@@ -115,7 +116,7 @@ start:		di
 		ld a,VID_360X288+VID_256C
 		out (c),a
 
-1		halt
+intro_		halt
 		call scroll_pal
 rol		ld a,#ff
 		inc a
@@ -136,11 +137,46 @@ sin1		ld a,0
 		out (c),a
 
 		call #8005
-		LD BC,#7FFE	;space
+		LD BC,#F7FE	;1
 		IN A,(C)
 		BIT 0,A
-		jr nz,1b
-		
+		jr nz,1f
+		ld a,3	; bridge
+		jr exit
+
+1		BIT 1,A
+		jr nz,1f
+		ld a,6
+		jr exit
+
+1		BIT 2,A
+		jr nz,1f
+		ld a,9
+		jr exit
+
+1		BIT 3,A
+		jr nz,1f
+		ld a,#0c
+		jr exit
+
+1		BIT 4,A
+		jr nz,1f
+		ld a,#10	; sky base
+		jr exit
+
+1		LD BC,#EFFE	;0
+		IN A,(C)
+		BIT 0,A
+		jr nz,1f
+		ld a,#ff	; immortal
+		jr exit
+
+1		LD BC,#7FFE	;space
+		IN A,(C)
+		BIT 0,A
+		jr nz,intro_
+		xor a
+exit		ld (#e000),a
 		call #8000
 		ld bc,PAGE2
 		ld a,Vid_page
@@ -453,13 +489,14 @@ chunk_buffer	ds chunk_y*chunk_x
 
 text	db " HI!   ENHANCERS PROUD TO PRESENT FOR YOU OUR NEW GEM - SONIC THE HEDGEHOG (C) SEGA MASTER SYSTEM.   "
 	db " < PRESS SPACE TO START >   HAPPY BIRTHDAY TO TSL! THIS IS GIFT FOR YOU! "
+	db " FOR ZONE CHANGE, PRESS: 1 - BRIGE, 2 - JUNGLE, 3 - LABYRINTH, 4 - SCRAP BRAIN, 5 - SKY BASE."
 	db "     HI DEMOSCENE GUYS!    YOU KNOWN AS CONSCIOUSNESS GROUP - AND YES, WE ARE! "
 	DB " AND OUR NEW NAME IS - ENHANCERS!   BUT, WE STILL ENLARGE YOUR CONSCIOUSNESS! ;)           "
 	DB " CREDITS: GAME PROGRAM - SHINOBU HAYASHI, SEGA. REALLY COOL ENGINE!   "
 	DB " PORTED TO ZX ENHANCED; INTRO CODE, MUSIC: HACKER VBI, 12/05 - 14/06/2018!  "
 	DB " BABY, YEA! I DO IT ONLY ONE!)   THANKS TO FLEXX FOR MORAL SUPPORT!  AND NOW - HELLO TO ALL MY FRIEND: "
-	db " ROB F., FLEXX, TSL, KALANTAY, WBC, SLIDER, PANDA, KENOTRON, INTROSPEC, MR287CC, MOROZ1999, QUIET, KOSHI, KOWALSKI, "
-	DB " NIK-O, KOTSOFT, BLADE, TREFI, NYUK, R0BAT, PSNDCJ, DIVER, NODEUS, TMK, C-DJEFF, SQ, BUYAN, BFOX, BREEZE, "
+	db " ROOK, ROB F., FLEXX, TSL,  KALANTAY, WBC, SLIDER, PANDA, KENOTRON, DENIS GRACHEV, INTROSPEC, MR287CC, MOROZ1999, QUIET, "
+	DB " NIK-O, KOSHI, KOWALSKI, KOTSOFT, BLADE, TREFI, NYUK, R0BAT, PSNDCJ, DIVER, NODEUS, TMK, C-DJEFF, SQ, BUYAN, BFOX, BREEZE, "
 	db " PSB, DDP, MMCM, SAND, ATURBIDFLOW... AND - YOU!!!                             "
 	DB #FF
 

@@ -3262,7 +3262,8 @@ _LABEL_C52_106:
 	call tsu_off	
 	res	0, (iy+vars.flags0)
 	call	waitForInterrupt
-	
+	ld hl,0
+	call cls_tileset		
 	;map screen 2 tileset
 	ld	hl, $1801		;$31801
 	ld	de, $0000
@@ -5024,8 +5025,14 @@ main_start:
 	ld	($D23F), a
 	
 ;	xor	a			;set A to 0
-	ld a,2
-	ld	(RAM_CURRENT_LEVEL), a	;set starting level!	$D23E
+	ld a,($e000)
+	cp $ff
+	jr nz,m21
+	ld a,1
+	call set_page1
+	xor a
+	ld ($5464),a
+m21	ld	(RAM_CURRENT_LEVEL), a	;set starting level!	$D23E
 	xor a
 	ld	(RAM_FRAMECOUNT), a
 	ld	(iy+$0d), a
