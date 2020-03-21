@@ -5,3 +5,5 @@ based on Kroc dissasembly
 All video and sound hardware software emulated, see sonic.asm
 
 port by Hacker VBI, Consciousness group 2018
+
+![intro](http://zxart.ee/image/type:prodImage/id:319589/filename:00077854.jpg)
